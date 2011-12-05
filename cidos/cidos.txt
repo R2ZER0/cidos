@@ -1,0 +1,29 @@
+//#pragma CPUName CIDOS
+#ifdef DEBUG
+#pragma set OutputFinalListing true
+#endif
+//#pragma SearchPath cidos/
+#pragma set NoUnreferencedLeaves false
+
+#ifndef NULL
+#define NULL 0
+#endif
+
+#ifndef magic
+define magic, __DATE_SECOND__;
+#endif
+
+CIDOS_VERSIONSTR:
+#ifdef DEBUG
+db 'v0.1a-DEV',0;
+#else
+db 'v0.1a-REL',0;
+#endif
+
+#ifdef DEBUG
+float dbgNextVal = 1;
+void dbgNext(){
+    out 0, dbgNextVal;
+    ++dbgNextVal;
+}
+#endif

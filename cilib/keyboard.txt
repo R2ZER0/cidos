@@ -1,0 +1,10 @@
+// keyboard funcs
+#ifndef _CILIB_KEYBOARD_
+#define _CILIB_KEYBOARD_
+
+//not sure what the point of this for now is... just consistancy i guess
+void* KeyBoard_New(void* hwptr) {
+    return hwptr;
+}
+
+#endif // _CILIB_KEYBOARD_

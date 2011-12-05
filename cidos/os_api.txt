@@ -1,0 +1,24 @@
+// API
+//
+// Thread:
+//    context switch/idle
+//    wait
+//    create thread
+//    kill (self)
+//
+// Disk:
+//    (re)format
+//    open file -> handle/error?
+//    read data -> error?
+//    write data -> error?
+//    close file
+//
+// Memory:                                
+//    allocate -> ptr
+//    free -> ptr
+//
+//
+//
+//
+
+

@@ -1,0 +1,14 @@
+#pragma set NoUnreferencedLeaves true
+
+struct dot {
+    float x, y;
+    float colour[4];
+};
+
+dot dots[4];
+
+void main() {
+    dots[1].x = 123;
+    dots[1].colour[0] = 255;
+}
+

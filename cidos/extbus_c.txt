@@ -1,0 +1,92 @@
+// CID-BIOS Extended Bus lib... because the official ones just don't work for some damned reason (was probably just that allocator bug)
+#define DEVT_NONE       0
+#define DEVT_EXTBUS     2
+#define DEVT_ADDRBUS    3
+#define DEVT_CPU        4
+#define DEVT_GPU        5
+#define DEVT_SPU        6
+#define DEVT_EEPROM     7
+#define DEVT_DHDD       8
+#define DEVT_TRANSFER_BUS 9
+#define DEVT_CD_RAY     10
+#define DEVT_CSCREEN    11
+#define DEVT_DSCREEN    12
+#define DEVT_PLUG       13
+#define DEVT_SOCKET     14
+#define DEVT_KEYBOARD   15
+#define DEVT_OSCILLOSCOPE 16
+#define DEVT_SOUND_EMITTER 17
+#define DEVT_CONSTANT_VALUE 18
+#define DEVT_DATAPORT   19
+#define DEVT_GATE       20
+
+
+#define EXT_MAX_DEVICES 8
+#define EXT_MAX_DEVID 7
+#define EXT_CTRL_AREA_SIZE (32+EXT_MAX_DEVICES)
+#define EXT_DEV_ADDRSIZE 1048576 // 1MiB
+
+float extBusOffset = 65536;
+
+#define DEV_SYSSCREEN 0
+#define DEV_SYSKEYBOARD 1
+#define DEV_SYSMEMORY 2
+#define DEV_SYSHDD 3
+#define DEV_USER1 4
+#define DEV_USER2 5
+#define DEV_USER3 6
+#define DEV_USER4 7
+#define DEV_USER5 8
+#define DEV_USER6 9
+#define DEV_USER7 10
+#define DEV_USER8 11
+#define DEV_MAXNUM 12
+
+//jut give 1MiB address space to every device... :)
+float devAddrTable[DEV_MAXNUM] = {
+    0x010000, //SYSSCREEN
+    0x110000, //SYSKEYBOARD
+    0x210000, //SYSMEMORY
+    0x310000, //SYSHDD
+    0x410028, //USER1 //extra 28 accounts for ExtBus control data offset
+    0x510028, //USER2
+    0x610028, //USER3
+    0x710028, //USER4
+    0x810028, //USER5
+    0x910028, //USER6
+    0xA10028, //USER7
+    0xB10028  //USER8
+};
+
+void extQuery(){
+    
+    extBusOffset[16] = EXT_CTRL_AREA_SIZE;
+    extBusOffset[17] = 1; //query devices
+    
+    float i = 0;
+    for(i = 0; i < EXT_MAX_DEVICES; ++i){
+        extBusOffset[i*2  ] = i * EXT_DEV_ADDRSIZE;
+        extBusOffset[i*2+1] = i * EXT_DEV_ADDRSIZE + EXT_DEV_ADDRSIZE;
+    }
+    
+}
+
+float extGetDevType(float id){
+    max id, 0;
+    min id, EXT_MAX_DEVID;
+    return (extBusOffset + 32 + id);
+}
+
+float extGetDevAddr(float id){
+    max id, 0;
+    min id, EXT_MAX_DEVID;
+    return extBusOffset[ id*2 ] + extBusOffset + EXT_CTRL_AREA_SIZE;
+}
+
+float extGetDevCount(){
+    float i, count;
+    for(i = 0; i < 8; ++i){
+        if( extGetDevType(i) != DEVT_NONE ){ ++count; }
+    }
+    return count;
+}

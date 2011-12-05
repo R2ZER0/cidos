@@ -1,0 +1,49 @@
+//CID-OS inttbl
+float* inttAddress;
+
+#define INTT_SETCMPR 8
+//#define INTT_DONTSETCS 16
+#define INTT_ENABLED 32
+#define INTT_ISNMI 64
+
+#define INTT_MAXNUM 64
+#define INTT_ENTRY_DEFAULT NULL
+
+void inttInit() {
+    lidtr inttAddress;
+    stef;
+}
+
+void inttDisable() {
+    clef;
+}
+
+void inttSetInterrupt(float num, float* addr, float* codeseg, float flags) {
+    float* ptr = inttAddress + num*4;
+    if( addr != NULL ){
+        ptr[0] = addr;
+    }else{
+        ptr[0] = intt_intEntryPoint;
+    }
+    ptr[1] = codeseg;
+    ptr[2] = 0;
+    ptr[3] = flags;
+}
+
+void inttSetAllHandlers(){
+    float i;
+    for(i = 32; i < INTT_MAXNUM; ++i){
+        inttSetInterrupt(i, INTT_ENTRY_DEFAULT, 0, INTT_ENABLED);
+    }
+}
+
+
+intt_intEntryPoint:
+    if(interruptHandler){
+        float intNum, intCode;
+        cpuget intNum, 28;
+        cpuget intCode, 27;
+        interruptHandler(intNum, intCode);
+    }
+iret;
+

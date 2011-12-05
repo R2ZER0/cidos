@@ -1,0 +1,298 @@
+// CFS
+
+/* TODO
+ * block read/write, so non direct-addressable storage devices can be used (i.e. CD)
+ * drive partitioning system (would this even be useful with such small drives?
+ * boot sector?
+ */
+
+#pragma set NoUnreferencedLeaves false
+//some constants
+#define CFS_BLOCK_SIZE 128
+#define CFS_BITS_PER_BYTE 32 //todo - actually read this at runtime?
+#define CFS_VERSION 1
+#define CFS_MAGIC 0xCF5
+
+//super struct
+struct cfs_super {
+	float magic;
+	float cfs_version;
+	float dsize;	//size of drive (in  number of blocks)
+	float bsize;	//size of a block (default: 128 bytes/block)
+	float nins;		//number of inode spaces
+	float inbm, inbmsz;	//location and size of INode Bitmap start (block num)
+	float dabm, dabmsz;	// Data Area Bitmap
+	float inarea, inareasz; // Inode Area
+	float darea, dareasz;	// Data Area
+};
+
+//file modes
+#define CFS_FMODE_READ  0x0001
+#define CFS_FMODE_WRITE 0x0002
+
+
+//filehandle struct
+struct cfs_handle {
+	float inoden;
+	float pos, mode;
+};
+
+
+#define CFS_MAX_NUM_FHANDLES 8
+
+//file types
+#define CFS_FTYPE_NONE 0
+#define CFS_FTYPE_NORMAL 1
+#define CFS_FTYPE_DIRECTORY 2
+#define CFS_FTYPE_SOFTLINK 3
+#define CFS_FTYPE_DEVICE 4
+#define CFS_FTYPE_NUM 5
+
+// INode structre
+struct cfs_inode {
+	float type;
+	float size;
+	float nlinks;
+	float blist[4];
+	float next;
+};
+
+#define DEBUG 1
+
+#ifdef DEBUG
+for(R0=0; R0<8; ++R0){ out R0,0; }
+cfs_format(0, 128*1024, 256);
+int 1;
+#endif
+
+/* Layout of a CiDFS-Formatted Drive:
+ * super block
+ * inode bitmap
+ * data area bitmap
+ * inodes (first inode is root dir) TODO maybe define this in superblock?
+ * data blocks
+
+simples! */
+
+/*//size in number of blocks
+float cfs_format_old(float size, float num_inodes){
+    float inode_bitmap_size, data_bitmap_size, inode_area_size, data_area_size; //all sizes in number of blocks
+    --size; //reserve one for superblock
+    if( CFS_BLOCK_SIZE < CFS_SUPER__SIZE ) return -1; //if a block is this small anyway, you got alot of overhead mate.
+
+    // all sizes are in number of blocks
+    inode_bitmap_size = (num_inodes/CFS_BITS_PER_BYTE) / CFS_BLOCK_SIZE; fceil inode_bitmap_size;
+    inode_area_size = (num_inodes * CFS_INODE__SIZE) / CFS_BLOCK_SIZE; fceil inode_area_size;
+    
+    data_area_size = size - (inode_bitmap_size + inode_area_size);
+    
+    //every bitmap block can deal with 128*CFS_BITS_PER_BYTE data blocks
+    //so one in every 128*CFS_BITS_PER_BYTE+1 blocks must be a bitmap block
+    data_bitmap_size = data_area_size / (CFS_BLOCK_SIZE*CFS_BITS_PER_BYTE+1); fceil data_bitmap_size;
+    data_area_size -= data_bitmap_size;
+    
+    #ifdef DEBUF
+    out 0, size;
+    out 1, inode_bitmap_size;
+    out 2, data_bitmap_size;
+    out 3, inode_area_size;
+    out 4, data_area_size;
+    #endif
+    
+    //write the superblock
+    push gs; mov gs, drive;
+	mov gs:#CFS_SUPER_MAGIC, CFS_MAGIC;
+	mov gs:#CFS_SUPER_CFS_VERSION, CFS_VERSION;
+	mov gs:#CFS_SUPER_DSIZE, size;
+	mov gs:#CFS_SUPER_BSIZE, CFS_BLOCK_SIZE;
+	mov gs:#CFS_SUPER_NINS, num_inodes;
+	mov gs:#CFS_SUPER_INBM, 1; //just after superblock (block 0)
+	mov gs:#CFS_SUPER_DABM, (1 + inode_bitmap_size);
+	mov gs:#CFS_SUPER_INAREA, (1 + inode_bitmap_size + data_bitmap_size);
+	mov gs:#CFS_SUPER_DAREA, (1 + inode_bitmap_size + data_bitmap_size + inode_area_size);
+    pop gs;
+
+    //fill the bitmaps with zeros
+    //inode bm
+    float bmblptr = 1;
+    float i = inode_bitmap_size;
+    while(i > 0){
+        _cfs_level_block(bmblptr++);
+        --i;
+    }
+
+    //dataarea bm
+    bmblptr = 1 + inode_bitmap_size;
+    i = data_bitmap_size;
+    while(i > 0){
+        _cfs_level_block(bmblptr++);
+        --i;
+    }
+
+    //maybe create root entry?
+    
+}*/
+
+inline void _cfs_level_block(float bid) {
+    preserve eax, ecx;
+    eax = _cfs_get_blkaddr(bid);
+    mov ecx, 128;
+    _cfs_level_block_loop:
+        mov #eax, 0;
+        inc eax;
+    loop _cfs_level_block_loop;
+}
+
+inline char* _cfs_get_blkaddr(float bid) { return drive + bid * CFS_BLOCK_SIZE; }
+
+float _cfs_fhandles[CFS_MAX_NUM_FHANDLES*CFS_FHANDLE__SIZE] = {0};
+
+cfs_super* drive = 0x10000; //default 64k MemBus location
+
+char cfs_test() { //tests the drive - can we use it, or does it need re-formatting?
+	cfs_super* drv = drive;
+	if(drv.magic != CFS_MAGIC) return 0; //not a CFS drive
+	if(drv.cfs_version > CFS_VERSION) return 0; //too new
+	if(drv.bsize != CFS_BLOCK_SIZE) return 0; //maybe in the future we should allow for diff block sizes
+	return 1;
+};
+
+//drvsize - size of drive in NUMBER OF BLOCKS! (NOT BYTES)
+char cfs_format(char drvsize, char num_inodes){
+	//calculate number of blocks needed for each section
+	char bpool = drvsize;
+	ffloor bpool; //just incase some idiot gave us a none-natural, don't blow up.
+	
+	--bpool; //reserve superblock
+	char bsz_inbm, bsz_dabm, bsz_ina, bsz_da;
+	
+	bsz_inbm = num_inodes / (CFS_BITS_PER_BYTE * CFS_BLOCK_SIZE); fceil bsz_inbm;
+	bpool -= bsz_inbm;
+	
+	bsz_ina = (num_inodes * sizeof(cfs_inode)) / CFS_BLOCK_SIZE; fceil bsz_ina;
+	bpool -= bsz+ina;
+	
+	//every bitmap block can deal with 128*CFS_BITS_PER_BYTE data blocks
+    //so one in every 128*CFS_BITS_PER_BYTE+1 blocks must be a bitmap block
+    bsz_dabm = bpool / (CFS_BLOCK_SIZE*CFS_BITS_PER_BYTE+1); fceil bsz_dabm;
+    bpool -= bsz_dabm;
+    
+    //whatever is left gets given to the data area
+    bsz_da = bpool;
+    
+    //now then, write the superblock!
+    cfs_super* sup = drive;
+    sup.magic = CFS_MAGIC;
+    sup.cfs_version = CFS_VERSION;
+    sup.dsize = drvsize;
+    sup.bsize = CFS_BLOCK_SIZE;
+    sup.nins = num_inodes;
+    //part size/locations
+    bpool = 1;
+    sup.inbm = bpool;
+    sup.inbmsz = bsz_inbm; bpool += bsz_inbm;
+    sup.dabm = bpool;
+    sup.dabmsz = bsz_dabm; curclk += bsz_dabm;
+    sup.inarea = bpool;
+    sup.inareasz = bsz_ina; bpool += bsz_ina;
+    sup.darea = bpool;
+    sup.dareasz = bsz_da;
+    
+    //maybe write root inode?
+	
+};
+
+inline float* _cfs_read_inode(float inid){
+    // go to inode area, get ptr to structure 
+    //what if it crosses blcok boundaries, and we are using a single-block-read system?
+    //have to copy it to a buffer or something
+    //in OS - on-demand-paging? too much overhead?
+    float offs = inid*sizeof(cfs_inode);
+    float blk = offs/CFS_BLOCK_SIZE;
+    float offsinblk = offs % 128;
+    ffloor blk;
+    preserve eax;
+    eax = _cfs_read_rawblock(drive.inarea + blk);
+    return eax + offsinblk;
+}
+
+inline float* _cfs_read_datablock(float dbid){
+    /* goto data area, get pointer to data block area */
+    return _cfs_read_rawblock(drive[CFS_SUPER_DBAREA] + dbid);
+}
+
+inline float* _cfs_read_rawblock(float bid){
+    return drive + (bid * CFS_BLOCK_SIZE);
+}
+
+float _cfs_create_file(){ //returns inode number
+    /* scan inode bitmap */
+    float inbmptr = drive[CFS_SUPER_INBM] * CFS_BLOCK_SIZE
+    /* get inode ptr */
+    /* format inode */
+}
+
+float _cfs_lookup_datablockid(float* inode, float bid){
+    float dbptr;
+    //if it's contained in the inode itsself
+    if(bid <= 4){ // 4 = number of data block pointers stored in actual inode
+        dbptr = inode[CFS_INODE_BLIST + bid]; //simple
+    }else{ //else we have to go through the linked list of block lists
+        dbptr = inode[CFS_INODE_NEXT];
+        fdbid -= 4;
+        //go through the blocklist chain until we get the right one
+        while(fdbid > 7){
+            dbptr = dbptr[CFS_BLIST_NEXT];
+            fdbid -= 7;
+        }
+        //get the number
+        dbptr = dbptr[fdbid];
+    }
+    return dbptr;
+}
+
+float cfs_read_fast(float hid, char* buffer, float size){
+    char* handle = &cfs_handles[ hid * CFS_FHANDLE__SIZE ];
+    char* inode = cfs_read_inode( handle[CFS_FHANDLE_INODEN] );
+
+    //bounds check
+    if( size <= 0 ) return 0; //nothing to do
+    if((size + handle) >=
+
+
+}
+
+float cfs_read(float hid, char* buffer, float size){
+ float* handle = &cfs_fhandles[hid*CFS_FHANDLE__SIZE];
+ float* inode = cfs_read_inode(handle[CFS_FHANDLE_INODEN]);
+
+ if((handle[CFS_FHANDLE_POS] + size) > inode[CFS_INODE_SIZE]){
+  return -1; //error - cannot read beyond the end of the file!
+ }
+ float tot_copy_amount = 0;
+ while(size > 0){ //while we still have data to read
+  ////find the data block ID we want to read from////
+  float fdbid = handle[CFS_FHANDLE_POS]/CFS_BLOCK_SIZE; ffloor fdbid;
+  float* dbptr = _cfs_lookup_datablockid(inode, fdbid);
+  
+  ////lookup the exact start of data to copy////
+  dbptr = _cfs_read_datablock(dbptr);
+  float pos_remainder = handle[CFS_FHANDLE_POS];
+  mod pos_remainder, CFS_BLOCK_SIZE;
+  dbptr += pos_remainder;
+  
+  //// copy! ////
+  float copy_amount = CFS_BLOCK_SIZE - pos_remainder;
+  preserve esi, edi;
+  mov esi, dbptr;
+  mov edi, buffer;
+  size -= copy_amount;
+  buffer += copy_amount;
+  mcopy copy_amount;
+  //onto the next block!
+  //TODO - this is extremely inefficient, as it looks up the dbptr for each block read = SLOW AS HELL.
+  //make this more iterative.
+ }
+ 
+ 
+}

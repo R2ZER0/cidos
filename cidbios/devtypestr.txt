@@ -1,0 +1,57 @@
+//device type identifiers (strings)
+define DEVT_NONE,       0x00;
+define DEVT_EXTBUS,     0x02;
+define DEVT_ADDRBUS,    0x03;
+define DEVT_CPU,        0x04;
+define DEVT_GPU,        0x05;
+define DEVT_SPU,        0x06;
+define DEVT_EEPROM,     0x07;
+define DEVT_DHDD,       0x08;
+define DEVT_TRANSFER_BUS,   0x09;
+define DEVT_CD_RAY,     0x0A;
+define DEVT_CSCREEN,    0x0B;
+define DEVT_DSCREEN,    0x0C;
+define DEVT_PLUG,       0x0D;
+define DEVT_SOCKET,     0x0E;
+define DEVT_KEYBOARD,   0x0F;
+define DEVT_OSCILLOSCOPE, 0x10;
+define DEVT_SOUND_EMITTER, 0x11;
+define DEVT_CONSTANT_VALUE, 0x12;
+define DEVT_DATAPORT,   0x13;
+define DEVT_GATE,       0x14;
+//these are idents defined only by CiDBIOS, they will not appear from extbus query
+define DEVT_PHXNET,     0x40;
+define DEVT_SERIAL,     0x41;
+define DEVT_NETADPT,    0x42;
+define DEVT_KERNELROM,  0x43;
+
+define DEVT__NUM, 0x44;
+
+DeviceTypeStr:
+    db _dev_none;
+    db 0;
+    db _dev_extbus;
+    db _dev_addrbus;
+    db _dev_cpu;
+    db _dev_gpu;
+    db _dev_spu;
+    db _dev_eeprom;
+    db _dev_dhdd;
+    db _dev_transbus;
+    db _dev_cdray;
+    
+    
+    
+string _dev_none,       "none";
+string _dev_extbus,     "extbus";
+string _dev_addrbus,    "addrbus";
+string _dev_cpu,        "cpu";
+string _dev_gpu,        "gpu";
+string _dev_spu,        "spu";
+string _dev_eeprom,     "eeprom";
+string _dev_dhdd,       "dhdd";
+string _dev_transbus,   "transferbus";
+string _dev_cdray,      "cdray";
+
+
+

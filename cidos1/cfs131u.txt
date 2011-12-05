@@ -1,0 +1,62 @@
+char cfsu_test(char* _drv) { //tests the drive - can we use it, or does it need re-formatting?
+    super* drv = _drv;
+    if(drv.magic != cfs_magic) return 0; //not a CFS drive
+    if(drv.version > cfs_version) return 0; //too new
+    return 1;
+};
+
+void cfsu_format(char* drv, float drive_size, float num_inodes) {
+    float pagepool = drive_size/page_size;
+    fint pagepool;
+    --pagepool; //reserve superblock
+    float num_inode_pages = (num_inodes * inode_size) / page_size;
+    fceil num_inode_pages;
+    pagepool -= num_inode_pages;
+    
+    float num_data_pages = pagepool;
+    float num_databm_pages = num_data_pages / (cell_size * page_size);
+    fceil num_databm_pages;
+    
+    num_data_pages -= num_databm_pages;
+    
+    //now write this info to superblock
+    //which is the first page of the drive
+    super* sup = drv;
+    
+    sup.magic = cfs_magic;
+    sup.version = cfs_version;
+    
+    sup.numinodes = num_inodes;
+    sup.numdatapages = num_data_pages;
+    
+    sup.inodestart = 1*page_size;
+    sup.bitmapstart = (1+num_inode_pages)*page_size;
+    sup.datastart = sup.bitmapstart + num_databm_pages*page_size;
+    
+    sup.totalpages = drive_size/page_size;
+    fint sup.totalpages;
+    
+    char* bitmapptr = sup + sup.bitmapstart;
+    char bitmapsize = sup.numdatapages/cell_size;
+    fceil bitmapsize;
+    
+    //clear the bitmap
+    push r0;
+    for(r0 = 0; r0 < bitmapsize; ++r0){
+        bitmapptr[r0] = 0;
+    }
+    
+    //reset all the inodes
+    float* inodestartptr = sup + sup.inodestart;
+    for(r0 = 0; r0 < sup.numinodes; ++r0){
+        inodestartptr[r0*inode_size] = ftype_none;
+    }
+    
+    pop r0;
+    
+}
+
+float cfsu_drive_version(char* drive){
+    super* sup = drive;
+    return sup.version;
+}

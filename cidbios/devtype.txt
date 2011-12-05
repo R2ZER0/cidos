@@ -1,0 +1,27 @@
+//device type identifiers
+define DEVT_NONE,       0;
+define DEVT_UNKNOWN,    1;
+define DEVT_EXTBUS,     2;
+define DEVT_ADDRBUS,    3;
+define DEVT_CPU,        4;
+define DEVT_GPU,        5;
+define DEVT_SPU,        6;
+define DEVT_EEPROM,     7;
+define DEVT_DHDD,       8;
+define DEVT_TRANSFER_BUS,   9;
+define DEVT_CD_RAY,     10;
+define DEVT_CSCREEN,    11;
+define DEVT_DSCREEN,    12;
+define DEVT_PLUG,       13;
+define DEVT_SOCKET,     14;
+define DEVT_KEYBOARD,   15;
+define DEVT_OSCILLOSCOPE, 16;
+define DEVT_SOUND_EMITTER, 17;
+define DEVT_CONSTANT_VALUE, 18;
+define DEVT_DATAPORT,   19;
+define DEVT_RAM,        20;
+//these are idents defined only by CiDBIOS, they will not appear from extbus query
+define DEVT_PHXNET,     0x40;
+define DEVT_SERIAL,     0x41;
+define DEVT_NETADPT,    0x42;
+define DEVT_KERNELROM,  0x43;

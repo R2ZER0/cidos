@@ -1,0 +1,53 @@
+// Filesystem Format:
+// Inodes - 128bytes (1 block) each
+//    * num blocks
+//    * Data block 0 number
+//    * Data block 1 number
+//    * ...
+//    * Data block 125 number
+//    * next inode
+//
+// Block 0 contrains meta info
+//    * must be 12345, otherwise considered unformatted
+//    * CIDFS Version (currently 0)
+//    * TODO
+//       size of disk?
+//       fist block of bitmap?
+//       size of bitmap?
+// Block 1 is the kernel inode
+// Block 2 is the root directory
+// Blocks 3 to 10 = bitmap of available blocks
+
+define CIDFS_MAGIC,12345;
+define CIDFS_VERSION,0;
+
+// eax = pointer to disk
+fs_format:
+// to format the disk:
+// a) write the metainfo
+    mov ebx, eax;
+    mov #ebx, CIDFS_MAGIC; inc ebx;
+    mov #ebx, CIDFS_VERSION;
+// b) clear the bitmap block
+    mov ebx, eax;
+    add ebx, 128*3; //skip to bitmap block
+    mov ecx, 128;
+    mul ecx, 8; //size of bitmap (in blocks)
+    _fs_format_bitmaploop:
+        mov #ebx, 0;
+        inc ebx;
+    loop _fs_format_bitmaploop;
+// c) mark the bitmap blocks as used in the bitmap,
+// so we don't overwrite it accidentally
+    mov ebx, eax;
+    add ebx, 128*3;
+    add ebx, 3;
+    mov ecx, 8; //size of bitmap (in blocks)
+    _fs_format_bitmaploop2:
+        mov #ebx, 1;
+        inc ebx;
+    loop _fs_format_bitmaploop2;
+
+// d) now it's formatted! horray!
+// add some data sometime maybe? like an OS kernel? and root dir?
+ret;

@@ -1,0 +1,26 @@
+char dev_getType(float id) {
+    return BIOS_DeviceList[3*id];
+}
+
+char* dev_getAddr(float id) {
+    return BIOS_DeviceList[3*id + 1];
+}
+
+
+char dev_getSize(float id) {
+    return BIOS_DeviceList[3*id + 2];
+}
+
+char dev_count() {
+    preserve eax;
+    mov eax, [BIOS_DeviceCount];
+    return eax;
+}
+
+char dev_find(float type) {
+    float i;
+    for(i = 0; i < BIOS_MAX_DEVICES; ++i){
+        if( dev_getType(i) == type ) return i;
+    }
+    return -1;
+}

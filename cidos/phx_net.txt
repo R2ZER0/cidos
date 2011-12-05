@@ -1,0 +1,59 @@
+// PhoeniX's Networking API, for use with his E2
+
+float* netMemory;
+
+char* netReadStringFromMemory(float ofs) {
+    char *ptr = netMemory + ofs;
+    char *tmp;
+    
+    strcpy(tmp, ptr);
+    return tmp;
+}
+
+float netReadFloatFromMemory(float ofs) {
+    float *ptr = netMemory + ofs;
+    return *ptr;
+}
+
+void netWriteStringToMemory(float ofs, char *str) {
+    char *ptr = netMemory + ofs;
+    strcpy(ptr, str);
+}
+
+void netWriteFloatToMemory(float ofs, float f) {
+    float *ptr = netMemory + ofs;
+    *ptr = f;
+}
+
+void netSendStr(char *str) {
+    netWriteFloatToMemory(netMemory, 15, 1);
+    netWriteStringToMemory(netMemory, 16, str);
+    out 6, 1; //Send pulse for E2 
+    out 6, 0;
+}
+
+void netSendFloat(float f) {
+    netWriteFloatToMemory(netMemory, 15, 2);
+    netWriteFloatToMemory(netMemory, 16, f);
+    out 6, 1; //Send pulse for E2 
+    out 6, 0;
+}
+
+float netIsReceiving() {
+    float recv;
+    in recv, 5;
+
+    if(recv) {
+        return 1
+    } else {
+        return 0
+    }
+}
+
+float netGetNumber() {
+    return netReadFloatFromMemory(netMemory, 16);
+}
+
+char* netGetString() {
+    return netReadStringFromMemory(netMemory, 16);
+}

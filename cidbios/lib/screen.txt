@@ -1,0 +1,156 @@
+// CiDBIOS Screen Library
+
+#ifndef CIDUX_BIOS
+define ttydevloc, 65536;
+#endif
+
+
+char* cbs_ptr = 0;
+char cbs_pos = 0;
+char cbs_col = 999;
+
+void cbs_init(char* devptr) {
+    cbs_pos = 0;
+    if(devptr <= 0) {
+        cbs_ptr = ttydevloc;
+    }else{
+        cbs_ptr = devptr;
+    }
+    cbs_ptr += 17*30*2;
+    //ttydevloc[2042] = 000;
+    //ttydevloc[2041] = 1;
+    cbs_newline();
+}
+
+void cbs_setcol(char col){
+    cbs_col = col;
+}
+
+void cbs_newline(){
+    cbs_pos = 0;
+    ttydevloc[2038] = 1;
+}
+
+void cbs_putchar(char c){
+    if(cbs_pos >= 60) cbs_newline();
+    if(c == '\n'){ cbs_newline(); }
+    else{
+        cbs_ptr[cbs_pos++] = c;
+        cbs_ptr[cbs_pos++] = cbs_col--;
+    }
+}
+
+void cbs_putstr(char* str){
+    while(*str != '\0'){
+         cbs_putchar(*str++);
+    }
+}
+
+void cbs_putint(float i){ //assumes ss == ds
+    char is_neg = 0;
+    preserve eax, ebx, ecx; //eax = current number, ebx = tmp for converting to ascii, ecx = counter
+    if(i < 0){
+        is_neg = 1;
+        neg i;
+    }
+    
+    eax = i;
+    fint eax;
+        cmp eax, 0; je cbs_putint_zero;
+        
+    push '\0';
+    mov ecx, 1;
+    cbs_putint_loop:
+        fint eax;
+        cmp eax, 0; jle cbs_putint_fin;
+        mov ebx, eax;
+        mod ebx, 10;
+        add ebx, 48; //ASCII offset
+        push ebx;
+        inc ecx;
+        div eax, 10;
+    jmp cbs_putint_loop;
+        
+        
+    cbs_putint_zero:
+        cbs_putchar('0');
+        return;
+    
+    cbs_putint_fin:
+        if(is_neg==1){ push '-'; }
+        cbs_putstr(esp+1);
+        add esp, ecx; //reset stack
+        return;
+}
+
+void cbs_putfloat(float i, float decplc) { 
+    float frac = i;
+    ffrac frac;
+    while(decplc-- > 0){
+        frac *= 10;
+    }
+    cbs_putint(i);
+    cbs_putchar('.');
+    if(frac < 0){ neg frac; }
+    cbs_putint(frac);
+}
+
+
+
+void cbs_printf(char* strptr) {
+    preserve r0, r1, r2;
+    r0 = strptr;
+    mov r2, 3; //offset from ebp
+    
+    @printf_loop:
+        mov r1, #r0; inc r0;
+        cmp r1, '\0'; jle @printf_fin;
+        cmp r1, '%'; je @printf_ctrl;
+        push r1;
+        call cbs_putchar;
+        inc esp;
+        //cbs_putchar(r1);
+    jmp @printf_loop;
+    
+    @printf_ctrl:
+        mov r1, #r0; inc r0;
+        cmp r1, 's'; je @printf_pstr;
+        cmp r1, 'd'; je @printf_pint;
+        cmp r1, 'f'; je @printf_pflt;
+        push '%';
+        call cbs_putchar;
+        inc esp;
+        //cbs_putchar('%');
+    jmp @printf_loop;
+    
+    @printf_pstr:
+        rstack r1, ebp:r2; inc r2;
+        //push r1;
+        //call cbs_putstr;
+        //inc esp;
+        cbs_putstr(r1);
+    jmp @printf_loop;
+    
+    @printf_pint:
+        rstack r1, ebp:r2; inc r2;
+        //push r1;
+        //call cbs_putstr;
+        //inc esp;
+        cbs_putint(r1);
+    jmp @printf_loop;
+    
+    @printf_pflt:
+        mov r1, #r0; inc r0;
+        sub r1, 48; //convert from ascii
+        push r1;
+        rstack r1, ebp:r2; inc r2;
+        push r1;
+        call cbs_putfloat;
+        add esp, 2;
+    jmp @printf_loop;
+    
+    @printf_fin:
+}
+
+#define print cbs_putstr
+#define printf cbs_printf

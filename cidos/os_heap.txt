@@ -1,0 +1,14 @@
+// EAX = number of file -> file handle
+fs_openfile:
+
+ret;
+
+// Heap System:
+//  pretty similar to the FS system, we have a load of 128-sized blocks
+//  and a bitmap at the beginning saying which are free, which are not.
+//  Very simple, we find the first continuous block by scanning the bitmap.
+//  Maybe not the most efficient method, but it's simple.
+
+//eax = size to allocate
+heap_alloc:
+    mov ebx

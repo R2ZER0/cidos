@@ -1,0 +1,52 @@
+#ifndef _CILIB_SCREEN_
+#define _CILIB_SCREEN_
+
+//screen object:
+// - buffer updated? 1 || 0
+// - buffer pointer
+#define ScreenHasBufferUpdated 0
+#define ScreenBuffer 1
+#define Screen__size 1081
+
+float* Screen_New() {
+    return sysMalloc(Screen__size);
+}
+
+void Screen_Delete(void* this) {
+    sysFree(this);
+}
+
+void Screen_Update(void* this, void* hardware) {
+    if(this[ScreenHasBufferUpdated] == 1) {
+        this[ScreenHasBufferUpdated] = 0;
+        Screen_CopyBuffer(this, hardware);
+    }
+}
+
+void Screen_CopyBuffer(void* this, void* hardware) {
+    preserve esi, edi;
+    esi = this;
+    add esi, ScreenBuffer;
+    edi = hardware;
+    mcopy 1080;
+}
+
+void Screen_WriteString(void* this, float x, float y, char* toPrint, float col) {
+    register float* str = toPrint;
+    register float* buf = this + ScreenBuffer + 2*(x + y*30);
+    
+    while(*str != 0){
+        *buf = *str;
+        ++buf;
+        *buf = col;
+        ++buf;
+        ++str;
+    }      
+    this[ScreenHasBufferUpdated] = 1;
+}
+
+void Screen_Clear(void* this){
+    this[ScreenBuffer + 2041] = 1;
+}
+
+#endif

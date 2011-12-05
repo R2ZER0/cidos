@@ -1,0 +1,6 @@
+#define DO_SOMETHING( a ) out 0, a
+
+DO_SOMETHING( 5 );
+
+
+int 1;

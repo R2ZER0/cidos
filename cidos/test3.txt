@@ -1,0 +1,22 @@
+// Test3
+main();
+
+#include <cilib/memory.txt>
+#include <cilib/screen.txt>
+#include <cilib/menu.txt>
+
+float* myScreen;
+float* myMenu;
+
+define HWSCRN,65535;
+
+void main() {    
+    Memory_init();    
+    
+    myScreen = Screen_New(); 
+    myMenu = Menu_New("TestMenu");   
+    
+    
+    
+    Menu_Render(myMenu, myScreen);
+}

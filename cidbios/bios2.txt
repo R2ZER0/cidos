@@ -1,0 +1,176 @@
+#define CIDUX_BIOS 1
+#define CIDUX_BIOS_VERSION 2
+__init();
+int 1;
+// CIDUX-BIOS test version 2
+//#pragma set NoUnreferencedLeaves false
+#ifndef NULL
+#define NULL 0
+#endif
+
+#include <cidbios/bios_data.txt>
+#include <cidbios/extbus.txt>
+#include <cidbios/api.txt>
+
+
+float bootPoint = NULL;
+float ttydevloc = NULL;
+float curDevPtr = NULL;
+
+void __init() {
+    //make sure we are not over the size limit, else something will be corrupted
+    //this has been removed, just do it manually
+    
+    //reset ports
+    for(R0 = 0; R0<8; ++R0){ out R0, 0; }
+#ifdef DEBUG
+    out 0, 1001;
+#endif    
+    curDevPtr = BIOS_DeviceList;
+    
+    //setup magic 
+    mov #BIOS_Magic, 0xC1DB105;
+    mov #BIOS_Version, BIOS_CURRENT_VERSION;
+    mov #BIOS_IdentString, __ident_str;
+#ifdef DEBUG    
+    out 0, 1002;
+#endif    
+    BIOSsetupApi();
+#ifdef DEBUG    
+    out 0, 1003;
+#endif    
+    // get devices 
+    mov #BIOS_DeviceCount, 0;
+    
+    //find location of our devices
+    extBusOffset = 65536;
+    extQuery();
+    
+    for(R0 = 0;R0 < EXT_MAX_DEVICES; ++R0){
+        BIOStestDeviceType(
+            extGetDevType(R0),
+            extGetDevAddr(R0),
+            extGetDevSize(R0)
+        );
+    }
+#ifdef DEBUG    
+    out 0, 1004;
+#endif    
+    BIOSinitDevices();
+#ifdef DEBUG    
+    out 0, 1005;
+#endif    
+    biosf_api_printstr(__ident_str);
+    biosf_api_printstr("System Initialised, booting...");
+#ifdef DEBUG    
+    out 0, 1006;
+#endif
+//Boot
+#ifdef BUILTINKERNEL
+    bootPoint = _KERNEL_BootPoint;
+#endif
+
+    if(bootPoint == NULL) {
+        biosf_api_printstr("Error: no kernel found!");
+        biosf_api_halt();
+    }else{
+        preserve eax;
+        mov eax, bootPoint;
+        jmp eax;
+    }
+    
+    
+//// END
+}
+
+__error:
+    out 0, -1;
+__syshalt:
+    int 1;
+    
+__ident_str:
+db 'CiDBIOS (c) 2011 Rikki Guy', 0;
+
+float BIOSputDevice(float type, float* loc, float size){
+    preserve eax;
+    mov eax, curDevPtr;
+    mov #eax, type; inc eax;
+    mov #eax, loc;  inc eax;
+    mov #eax, size;
+    add curDevPtr, 3;
+    inc #BIOS_DeviceCount;
+}
+
+void BIOSprobeRawBuffer(float* loc, float size){
+    preserve eax, ebx, ecx;
+    mov eax, loc;
+    cmp #eax, CIDOS_MAGIC_NUMBER;
+        jne BIOSprobeRawBuffer_ret; //just ignore the device, they probably wired a barrel by accident.
+    
+    mov ebx, eax;
+    add ebx, 2;
+    mov ecx, size;
+    sub ecx, 2;
+    inc eax;
+    
+    BIOSputDevice(*eax, ebx, ecx);
+    
+    BIOSprobeRawBuffer_ret:
+    return;
+}
+
+void BIOStestDeviceType(float type, float* loc, float size){
+    if(type <= 0) return;
+    idle;
+    preserve eax;
+    eax = type;
+    cmp eax, DEVT_ADDRBUS; je testDeviceType_isRawBuffer;
+    cmp eax, DEVT_CPU;     je testDeviceType_isRawBuffer;
+    //cmp eax, DEVT_EEPROM;  je testDeviceType_isRawBuffer;
+    //cmp eax, DEVT_DHDD;    je testDeviceType_isRawBuffer;
+    cmp eax, DEVT_TRANSFER_BUS;    je testDeviceType_isRawBuffer;
+    cmp eax, DEVT_PLUG;    je testDeviceType_isRawBuffer;
+    cmp eax, DEVT_SOCKET;  je testDeviceType_isRawBuffer;
+        
+    if(type == DEVT_CSCREEN){
+        ttydevloc = loc;
+        BIOSputDevice(DEVT_CSCREEN, loc, 2048);
+    }else{
+        BIOSputDevice(type, loc, size);
+    }
+    
+    return;
+    
+    testDeviceType_isRawBuffer:
+    BIOSprobeRawBuffer(loc, size);
+    return;    
+}
+
+void BIOSinitDevice(float type, float addr, float size){
+    push gs;
+    //TODO add initialisations for other devices
+    cmp type, DEVT_CSCREEN; jne initDevice_ret;
+        mov gs, addr;
+        mov gs:#2042, 0;
+        mov gs:#2046, 0;
+        mov gs:#2047, 1;
+        mov gs:#2020, 1;
+        mov gs:#2041, 1;
+    initDevice_ret:
+    pop gs;
+}
+
+void BIOSinitDevices() {
+    float n, *dptr;
+    mov n, [BIOS_DeviceCount];
+    dptr = BIOS_DeviceList;
+    
+    while(n > 0){
+        out 1, n;
+        BIOSinitDevice(dptr[0], dptr[1], dptr[2]);
+        
+        dptr += 3;
+        --n;
+    }
+    
+}

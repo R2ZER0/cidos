@@ -1,0 +1,75 @@
+// CID-BIOS Extended Bus lib... because the official ones just don't work for some damned reason
+#pragma language zasm
+
+define DEVT_NONE,       0
+define DEVT_EXTBUS,     2
+define DEVT_ADDRBUS,    3
+define DEVT_CPU,        4
+define DEVT_GPU,        5
+define DEVT_SPU,        6
+define DEVT_EEPROM,     7
+define DEVT_DHDD,       8
+define DEVT_TRANSFER_BUS, 9
+define DEVT_CD_RAY,     10
+define DEVT_CSCREEN,    11
+define DEVT_DSCREEN,    12
+define DEVT_PLUG,       13
+define DEVT_SOCKET,     14
+define DEVT_KEYBOARD,   15
+define DEVT_OSCILLOSCOPE, 16
+define DEVT_SOUND_EMITTER, 17
+define DEVT_CONSTANT_VALUE, 18
+define DEVT_DATAPORT,   19
+define DEVT_GATE,       20
+
+
+define EXT_CTRL_AREA_SIZE, 40;
+define EXT_DEV_ADDRSIZE, 1048576; // 1MiB
+
+define extBusOffset, 65536;
+
+extQuery: // no args // queries attached devices
+    mov ebx,extBusOffset;
+    add ebx,16;
+    mov #ebx,EXT_CTRL_AREA_SIZE; //ctrl data area size 32 + 8 [16]
+    inc ebx;
+    mov #ebx,1; //query devices [17]
+    //loop to set address offsets
+    mov eax,0;
+    mov ecx,9;
+    mov ebx,extBusOffset;
+    extQueryLoop:
+        //calc start address (rel to extbus + ctrlsize)
+        mov eax,ecx;
+        dec eax;
+        mul eax,EXT_DEV_ADDRSIZE;
+        mov gs:#0,eax;
+        //calc end
+        add eax,EXT_DEV_ADDRSIZE;
+        dec eax;
+        mov gs:#1,eax;
+        
+        add gs,2;
+    loop extQueryLoop;
+ret;
+
+extGetDevType: // id -> type // gets the type of the device
+    min R0,0;
+    max R0,7;
+    mov eax,extBusOffset;
+    add eax,32;
+    add eax,R0;
+    mov eax,#eax;
+ret;
+
+extGetDevAddr: // id -> address // gets address of the device (absolute)
+    // return extBusOffset + 32 + 8 + extBusOffset[id*2];
+    min r0,0;
+    max r0,7;
+    mov eax,r0;
+    mul eax,2;
+    add eax,extBusOffset;
+    mov eax,#eax;
+    add eax,EXT_CTRL_AREA_SIZE;
+    add eax,extBusOffset;
+ret;

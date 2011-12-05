@@ -1,0 +1,447 @@
+// CFS
+
+// TODO
+// block read/write, so non direct-addressable storage devices can be used (i.e. CD)
+// drive partitioning system (would this even be useful with such small drives?
+// boot sector?
+//
+
+#pragma set NoUnreferencedLeaves false
+//#pragma set OutputResolveListing true
+#pragma set OutputFinalListing true
+
+#define DEBUG
+
+#ifdef DEBUG
+for(R0=0; R0<8; ++R0){ out R0,0; }
+cfs_format(0, 128*1024, 256);
+eax = cfs_test();
+int 1;
+#endif
+
+//some constants
+#define NULL 0
+#define CFS_BLOCK_SIZE 128
+//todo - actually read this at runtime?
+#define CFS_BITS_PER_BYTE 32
+#define CFS_VERSION 1
+#define CFS_MAGIC 0xCF5
+//#define CFS_MAGIC 3317
+#define CFS_ERR -1
+
+//super struct
+struct cfs_super {
+    float magic;
+    float cfs_version;
+    float dsize;    //size of drive (in  number of blocks)
+    float bsize;    //size of a block (default: 128 bytes/block)
+    float nins;        //number of inode spaces
+    float inbm, inbmsz;    //location and size of INode Bitmap start (block num)
+    float dabm, dabmsz;    // Data Area Bitmap
+    float inarea, inareasz; // Inode Area
+    float darea, dareasz;    // Data Area
+    float rootdir;    // Inode ID of root directory inode
+};
+
+#define sizeof_cfs_super 14
+
+//file modes
+#define CFS_FMODE_READ  0x0001
+#define CFS_FMODE_WRITE 0x0002
+
+
+//filehandle struct
+struct cfs_handle {
+    float inoden;
+    float pos, mode;
+};
+
+#define sizeof_cfs_handle 3
+
+
+#define CFS_MAX_NUM_FHANDLES 8
+
+//file types
+#define CFS_FTYPE_NONE 0
+#define CFS_FTYPE_NORMAL 1
+#define CFS_FTYPE_DIR 2
+#define CFS_FTYPE_LINK 3
+#define CFS_FTYPE_DEV 4
+#define CFS_FTYPE_NUM 5
+
+//NONE = undefined file
+//NORMAL = just holds data
+//DIR = holds a list of dentrys, data[0] = number of entries, blocks start from data[1]
+//LINK = a symbolic link to another file, the inoden is stored in data[0]
+//DEV = a device. Major number in data[0], minor in data[1]
+
+// INode structre
+struct cfs_inode {
+    float type;
+    float size;
+    float nlinks; //count of hard and soft links - when reaches zero, this inode and all associated data can be destroyed.
+    float data[4]; //relative to start of data area
+    float next;
+};
+
+#define sizeof_cfs_inode 8
+
+//_MUST_ be the same size as an inode, as it is stored in the inode area
+struct cfs_blklist {
+    float data[sizeof_cfs_inode - 1]; //atm, 7, not likely to change either (is hardcoded various places)
+    float next;
+};
+
+#define sizeof_cfs_blklist sizeof_cfs_inode
+
+#define CFS_FNAME_LENGTH 15
+struct cfs_dentry {
+    char name[CFS_FNAME_LENGTH];
+    float inoden;
+};
+
+#define sizeof_cfs_dentry 16
+
+// Layout of a CiDFS-Formatted Drive:
+// super block
+// inode bitmap
+// data area bitmap
+// inodes (first inode is root dir) TODO maybe define this in superblock?
+// data blocks
+
+//simples!
+// OR can be however you want really, the stuff in the superblock
+// allows for alterations to layout (but not scheme);
+//
+
+//a list of open filehandles
+float _cfs_fhandles[CFS_MAX_NUM_FHANDLES*sizeof_cfs_handle] = {0};
+
+//pointer to the drive
+cfs_super* drive = 0x10000; //default 64k MemBus location
+
+//lookup util. functions
+char* cfs_get_blkptr(float blknum) {
+    //just get a pointer to any block on the drive
+    return drive + blknum*CFS_BLOCK_SIZE;
+}
+
+char* cfs_get_datablkptr(float num) {
+    //a pointer to a block, relative to the data block area
+    return drive + (drive.darea + num)*CFS_BLOCK_SIZE;
+}
+
+cfs_inode* cfs_get_inodeptr(float num) {
+    //get a pointer to a particular inode
+    return drive + drive.inarea*CFS_BLOCK_SIZE + num*sizeof_cfs_inode;
+}
+
+inline cfs_inode* cfs_get_rootdirptr() {
+    //get a pointer to the inode of the root dir
+    //(if this isn't a dir, well then... noidea)
+    return cfs_get_inodeptr( drive.rootdir );
+}
+
+//TODO turn this into a macro-function when they are implemented
+inline cfs_inode* cfs_trans_link(cfs_inode* linkptr){
+    //translate a link into a real inode, if it is a link, otherwise just return itsself
+    if(linkptr.type == CFS_FTYPE_LINK) return cfs_get_inodeptr(linkptr.data[0]);
+    else return linkptr;
+}
+
+char cfs_strcmp(char* stra, char* strb){
+    register float a = stra;
+    register float b = strb;
+    while(*a == *b){
+        //gotta check for terminator
+        if(*a == '\0') return 1;
+        inc a;
+        inc b;
+    }
+    return 0;
+}
+
+char cfs_strncmp(char* stra, char* strb, float maxlen){
+    register float a = stra;
+    register float b = strb;
+    register float c = maxlen;
+    while(*a == *b && c-- > 0){
+        //gotta check for terminator
+        if(*a == '\0') return 1;
+        ++a;
+        ++b;
+    }
+    return 0;
+}
+
+char cfs_cmp_filenames(char* stra, char* strb, float maxlen){
+    register float a = stra;
+    register float b = strb;
+    register float c = CFS_FNAME_LENGTH;
+    while(*a == *b && c-- > 0){
+        //gotta check for terminator
+        if(*a == '\0') return 1;
+        ++a;
+        ++b;
+    }
+    if(*a == '/' && *b == '\0'
+    || *a == '\0' && *b == '/') return 1;
+    else return 0;
+}
+
+void cfs_copyincr_filename(char** src, char* dest) {
+    while(*dest++ = *((*src)++)){
+        if(**src == '/'){
+            *dest = '\0';
+            ++(*src);
+            return;
+        }else if(**src == '\0'){
+            *dest = '\0';
+            return;
+        }
+    }
+}
+
+char* cfs_lookup_ind_datablk(cfs_inode* ind, float blknum){
+    if(ind.type == CFS_FTYPE_DIR) ++blknum; //dirs data block pointers start from data[1] not data[0]
+    if(blknum < 4){
+        return cfs_get_datablkptr( ind.data[blknum] );
+    }
+    //otherwise, get it from linked-list structure
+    float blk_rel = blknum - 4;
+    cfs_blklist* blkptr = cfs_get_inodeptr(ind.next);
+    while(blk_rel >= 7) {
+        if(blkptr.next == NULL) return CFS_ERR;
+        blkptr = cfs_get_inodeptr(blkptr.next);
+        blk_rel -= 7;
+    }
+    if(blkptr.data[blk_rel] == NULL) return CFS_ERR;
+    return cfs_get_datablkptr(blkptr.data[blk_rel]);
+}
+
+inline char cfs_test_dentry(cfs_dentry* dent, char* fname) {
+    return cfs_strncmp(dent.name, fname, CFS_FNAME_LENGTH);
+}
+
+inline void cfs_level_block(float bid) { //level that block! let no one be spared!
+    preserve eax, ecx;
+    eax = _cfs_get_blkaddr(bid);
+    mov ecx, 128;
+    _cfs_level_block_loop:
+        mov #eax, 0;
+        inc eax;
+    loop _cfs_level_block_loop;
+}
+
+cfs_inode* cfs_lookup_dentry(cfs_inode* dirin, char** fname) {
+    float cur_blk_no = 0;
+    char* blkptr;
+    while(blkptr = cfs_lookup_ind_datablk(dirin,cur_blk_no++)) {
+        if(blkptr == CFS_ERR) return CFS_ERR;
+        float *deptr = blkptr;
+        float nextblk = blkptr + CFS_BLOCK_SIZE;
+        while(deptr < nextblk){
+            if(*deptr == NULL) return CFS_ERR;
+            if( cfs_test_dentry(deptr, fname) == 1 ){
+                return cfs_get_inodeptr( deptr.inoden );
+            }
+        }
+    }
+    return CFS_ERR;
+}
+
+cfs_handle* cfs_find_free_handle() {
+    float i;
+    for(i = 0; i < CFS_MAX_NUM_FHANDLES; ++i) {
+        
+    }
+}
+
+cfs_handle* cfs_open(char* filename) {
+    //ok, so recuse until we find a non-directory
+    //links must be translate
+    //devs are... todo.
+    cfs_inode* inptr = cfs_get_rootdirptr();
+    while(inptr = cfs_trans_link(inptr)){ //transparently deal with links
+        if(inptr.type == CFS_FTYPE_DIR){
+            char tmpname[CFS_FNAME_LENGTH];
+            cfs_copyincr_filename(&filename, tmpname);
+            inptr = cfs_lookup_dentry(inptr, tmpname);
+            while(fname++ != '\0'){} //just skip to next name in the path
+        }else{
+            //WE GOT THE FILE!
+            //make the handle and return it
+        }
+    }
+}
+
+char cfs_test() { //tests the drive - can we use it, or does it need re-formatting?
+    cfs_super* drv = drive;
+    if(drv.magic != CFS_MAGIC) return CFS_ERR;  //not a CFS drive
+    if(drv.cfs_version > CFS_VERSION) return CFS_ERR; //too new
+    if(drv.bsize != CFS_BLOCK_SIZE) return CFS_ERR; //maybe in the future we should allow for diff block sizes
+    return 1;
+};
+
+//drvsize - size of drive in NUMBER OF BLOCKS! (NOT BYTES - incase someone didn't get that)
+void cfs_format(char drvsize, char num_inodes){
+    //calculate number of blocks needed for each section
+    char bpool = drvsize;
+    ffloor bpool; //just incase some idiot gave us a none-natural, don't blow up.
+    
+    --bpool; //reserve superblock
+    char bsz_inbm, bsz_dabm, bsz_ina, bsz_da;
+    
+    bsz_inbm = num_inodes / (CFS_BITS_PER_BYTE * CFS_BLOCK_SIZE); fceil bsz_inbm;
+    bpool -= bsz_inbm;
+    
+    bsz_ina = (num_inodes * sizeof_cfs_inode) / CFS_BLOCK_SIZE; fceil bsz_ina;
+    bpool -= bsz_ina;
+    
+    //every bitmap block can deal with 128*CFS_BITS_PER_BYTE data blocks
+    //so one in every 128*CFS_BITS_PER_BYTE+1 blocks must be a bitmap block
+    bsz_dabm = bpool / (CFS_BLOCK_SIZE*CFS_BITS_PER_BYTE+1); fceil bsz_dabm;
+    bpool -= bsz_dabm;
+    
+    //whatever is left gets given to the data area
+    bsz_da = bpool;
+    
+    //now then, write the superblock!
+    cfs_super* sup = drive;
+    sup.magic = CFS_MAGIC;
+    sup.cfs_version = CFS_VERSION;
+    sup.dsize = drvsize;
+    sup.bsize = CFS_BLOCK_SIZE;
+    sup.nins = num_inodes;
+    //part size/locations
+    bpool = 1;
+    sup.inbm = bpool;
+    sup.inbmsz = bsz_inbm; bpool += bsz_inbm;
+    sup.dabm = bpool;
+    sup.dabmsz = bsz_dabm; bpool += bsz_dabm;
+    sup.inarea = bpool;
+    sup.inareasz = bsz_ina; bpool += bsz_ina;
+    sup.darea = bpool;
+    sup.dareasz = bsz_da;
+    
+    sup.rootdir = 0; //root dir is very first INode
+    
+    //maybe write root inode?
+    
+};
+
+float _cfs_scan_bits(float val) {
+    //tight-loop stuff, deserves optimizing...
+    preserve eax, ebx;
+    //for each bit, test it - if zero return it's indx, ele if all are true, return -1;
+    ebx = val; //ebx is val for quick refernce
+    mov eax, 0; //eax is the current bitcounter
+    _cfs_scan_bits_loop:
+        tbit ebx, eax;
+        jz _cfs_scan_bits_succ; //got one!
+        //otherwise just try the next, as long as we havn't gone over the limit
+        inc eax;
+        cmp eax, CFS_BITS_PER_BYTE;
+            jge _cfs_scan_bits_fail; //we are over the limit, fail.
+    jmp _cfs_scan_bits_loop;
+    
+    _cfs_scan_bits_succ:
+        return eax; //horray!
+
+    _cfs_scan_bits_fail:
+        return CFS_ERR;
+}
+
+float _cfs_scan_bmblock(float* blk) {
+    //scan each byte of a bitmap
+    float* last = blk + CFS_BLOCK_SIZE;
+    register float bptr = blk;
+    while(bptr != last){
+        float res = _cfs_scan_bits(*bptr);
+        if(res != CFS_ERR) return (bptr - blk) * CFS_BITS_PER_BYTE + res; //return the bit's index
+        ++bptr;
+    }
+    return CFS_ERR; //propagated fail :(
+    //...surely such a simple task can't be this simple?
+}
+
+float _cfs_scan_bm(float firstblk, float maxidx) {
+    float numblks = maxidx/(CFS_BLOCK_SIZE * CFS_BITS_PER_BYTE);
+    //maybe blocksize*bitsperbyte should be another macro - is it used often enough?
+    float curblk = firstblk;
+    while(curblk < numblks){
+        float* bptr = _cfs_read_block(curblk);
+        float res = _cfs_scan_bmblock(bptr);
+        if(res != CFS_ERR) return (curblk - firstblk)*CFS_BLOCK_SIZE*CFS_BITS_PER_BYTE + res; //yay, at last...
+        ++curblk;
+    }
+    return CFS_ERR; // D:
+
+inline float _cfs_find_free_dblock() {
+    return _cfs_scan_bm(drive.dabm, drive.dareasz);
+}
+
+inline float _cfs_find_free_inode() {
+    return _cfs_scan_bm(drive.inbm, drive.nins);
+}
+
+inline float* _cfs_read_inode(float inid) {
+    // go to inode area, get ptr to structure 
+    //what if it crosses blcok boundaries, and we are using a single-block-read system?
+    //have to copy it to a buffer or something
+    //in OS - on-demand-paging? too much overhead?
+    //wait, but inode side is 8, and block size is 128 => no boundaries will be crossed
+    float offs = inid*sizeof_cfs_inode;
+    float blk = offs/CFS_BLOCK_SIZE;
+    float offsinblk = offs % 128;
+    ffloor blk;
+    return _cfs_read_rawblock(drive.inarea + blk) + offsinblk;
+}
+
+char* cfs_lookup_filedatablk(cfs_inode* ind, num) {
+    if(ind.type != CFS_FTYPE_NONE
+    && ind.type != CFS_FTYPE_LINK
+    && ind.type != CFS_FTYPE_DEV){
+        //then just a regular lookup
+        if(num < 4) { //it's contained within the inode
+            return _cfs_get_datablock(ind.data[num]);
+        }
+        //otherwise we have to scan the dblock list
+        _cfs_get_
+        
+        
+    }else if(ind.type == CFS_FTYPE_LINK){
+        //return the data for the link
+        return cfs_lookup_filedatablk( _cfs_read_inode(ind.data[0], num);
+    }else return CFS_ERR;
+}
+
+float cfs_memcpy_block(char *src, char* dest, float amount) {
+    preserve esi, edi, ecx;
+    esi = src;
+    edi = dest;
+    ecx = amount;
+    max ecx, CFS_BLOCK_SIZE;
+    mcopy ecx;
+    return ecx;
+}
+
+void cfs_read_from_inode(cfs_inode* ind, char* buffer, float start, float amount) {
+    float curblk = start/CFS_BLOCK_SIZE;
+    ffloor curblk;
+    if(curblk < 4){ 
+        while(amount > 0){
+                float copied = cfs_memcpy_block( cfs_get_datablkptr( ind.data[curblk] ), buffer, amount );
+                amount -= copied;
+                buffer += copied;
+        }
+    }else{
+        cfs_blklist* blistptr = cfs_get_inodeptr( ind.next );
+        curblk -= 4;
+        //get to the start of where we want to be
+        while(curblk => 7){
+            blistptr = cfs_get_inodeptr( blistptr.next );
+            curblk -= 7;
+        }
+    }
+}

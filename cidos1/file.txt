@@ -1,0 +1,17 @@
+// CiDOS FileSystem management
+
+//File Handle descriptor
+// * mode (read/write/both)
+// * position in file
+// * flags - what?
+// * owner - process owning this handle
+//
+//
+//
+
+struct inode {
+	int type;	//directory, std file, device, soft link, etc
+	int size;
+	int links;
+	int blocks[8];
+};

@@ -1,0 +1,26 @@
+// CiDOS Kernel Configuration
+// Change your settings here, then compile cidos1/kernel.txt
+
+// BUILTINKERNEL - whether or not this is a single-unit BIOS+Kernel, allows for easy/embedded systems,
+// but means you have to completely recompile all BIOS/Kernel every time you want to update - slow, but easy
+#define BUILTINKERNEL
+
+// NOGFX - completly non-graphical, will not expect any kind of screen to be attached, and cannot use them if they are.
+// maybe good for servers.
+//#define NOGFX
+
+
+// NOBOOTGFX - if this is defined, nothing will be printed/displayed until the OS is has fully booted.
+// overridden by
+//#define NOBOOTGFX
+
+
+// NOBOOTSPLASH - will not display the CiDOS logo splash & progress bar while booting, will use plain message printing instead.
+// overridden by NOBOOTGFX and NOGFX
+//#define NOBOOTSPLASH
+
+
+//Filesystem types you want to support
+#define FS_INITRD
+#define FS_CUFS
+//#define FS_ALCORFAT

@@ -1,0 +1,205 @@
+// CFS 1.31 Test
+//#pragma set OutputFinalListing true
+#include <cidbios/apphead.txt>
+#include <cidbios/lib/screen.txt>
+#include <cidbios/lib/device.txt>
+#include <cidos1/cfs131.txt>
+#include <cidos1/cfs131u.txt>
+
+void main() {
+    cbs_init(NULL);
+    
+    printf("CFS v%f2 Test : PRGMSZ=%d\n", cfs_version, __PROGRAMSIZE__);
+    
+    //print_devices();
+    //ext_print_devices();
+    //printf("0xFF %d\n", test_bits(0xFF));
+    
+    float hddid = dev_find(DEVT_RAM); //FIXME - use a DHDD or EEPROM instead... why is dynamic memory classed as unknown?
+    if(hddid == -1){
+        cbs_setcol(900);
+        print("Error: No HDD Found!");
+        return;
+    }
+    
+    printf("Found HDD (%d), Formatting...\n", hddid);
+    char* driveaddr = dev_getAddr(hddid)+1;
+    
+    
+    cfsu_format(driveaddr, 128*1024, 512);
+    
+    drive = driveaddr;
+    printf("DriveAddr=%d\n", drive);
+    
+    
+    cfsu_drive_info(drive);
+    
+    //set root inode
+    inode* root_inode = get_root_inode_ptr();
+    root_inode.type = ftype_dir;
+    
+    //find a free datapage
+    root_inode.pageid = find_free_datapage();
+    page_set_bit(root_inode.pageid);
+    
+    printf("Root INode type=%d pageid=%d\nnextfree=%d\n", root_inode.type, root_inode.pageid, find_free_datapage());
+    
+    dump_inode(0);
+    
+    
+}
+
+//#pragma set NoUnreferencedLeaves false
+
+string inode_type_str_none, "none";
+string inode_type_str_norm, "normal";
+string inode_type_str_dir, "dir";
+string inode_type_str_dev, "device";
+
+inode_type_str:
+db inode_type_str_none;
+db inode_type_str_norm;
+db inode_type_str_dir;
+db inode_type_str_dev;
+
+
+
+void dump_pagelist(float id){
+    printf("Pagelist Dump %d :\n", id);
+    if(id >= drive.numinodes){
+        printf("Error: ID out of range.\n");
+        return;
+    }
+    
+    pagelist* pglist = get_inode_ptr(id);
+    
+    float j;
+    for(j=0; j<7; ++j){
+        printf("[%d] -> %d\n", j, *(pglist.pages + j));
+    }
+    printf("Next=%d\n", pglist.next);
+    return pglist;
+}
+
+void dump_inode(float id){
+    printf("Inode Dump %d :\n", id);
+    if(id >= drive.numinodes){
+        printf("Error: ID out of range.\n");
+        return;
+    }
+    
+    inode* indptr = get_inode_ptr(id);
+    printf("Type=%s\n", inode_type_str[indptr.type]);
+    float num_pages = indptr.size/page_size;
+    fceil num_pages;
+    max num_pages, 1;
+    printf("Size=%d (%d pages)\n", indptr.size, num_pages);
+    printf("N.links=%d\n", indptr.nlinks);
+    printf("Miscdata={%d,%d,%d}\n", *(indptr.miscdata), *(indptr.miscdata+1), *(indptr.miscdata+2));
+    printf("Pageid=%d\n", indptr.pageid);
+    printf("PagelistID=%d\n", indptr.pglist);
+    if(indptr.pglist > 0){ dump_pagelist(indptr.pglist); }
+    
+}
+
+void inode_pop_datapage(inode* ind) { //deallocate and remove the last datapage from the file
+    float top_page_id = ind.size/page_size;
+    fint top_page_id;
+    
+    if(top_page_id == 0) return; //we cannot get rid of the in-inode block
+    
+    char* dpageid = get_inode_datapage_idptrptr(ind, top_page_id);
+    page_clear_bit(*dpageid);
+    *dpageid = -1;
+    
+    if(((top_page_id-1) % 7) == 0){ //if it was the last one in the blocklist, we need to free that blocklist
+        char* unused_inode_idptr = (get_inode_datapage_idptrptr(ind, top_page_id-1) + 1);
+        pagelist* unused_inode_ptr = get_inode_ptr(*unused_inode_idptr);
+        *unused_inode_ptr = 0; //"free" the inode (st first value to null)
+        *unused_inode_idptr = 0; //set the id to 0, unlinking it fomr the list
+    }
+    
+}
+
+void inode_push_datapage(inode* ind) {
+    
+}
+
+void inode_resize(inode* ind, float newsize) {
+    char curmaxpage = ind.size/page_size;
+    fint curmaxpage;
+    
+    char newmaxpage = newsize/page_size;
+    fint newmaxpage;
+    
+    if(newmaxpage == curmaxpage) return; //yay, we don't need to do anything
+    else if(newmaxpage < curmaxpage){ //free up the last page(s)
+        while(curmaxpage > newmaxpage){
+            inode_pop_datapage(ind);
+            --curmaxpage;
+        }
+    }else if(newmaxpage < curmaxpage){
+        while(curmaxpage < newmaxpage){
+            inode_push_datapage(ind);
+            ++curmaxpage;
+        }
+    }
+    ind.size = newsize;
+}
+
+void create_root_file(char* name) {
+    inode* root = get_root_inode_ptr();
+    dentry* newrootentr = get_dentry_ptr(root, *(root.miscdata)); //miscdata[0] is the number of entries in the dir
+    ++(*(root.miscdata));
+}
+
+/*
+
+void ext_print_devices(){
+    float i;
+    print("Physical device layout:\nID|Type|Addr\n");
+    for(i=0; i < BIOS_MAX_DEVICES; ++i){
+        char dtype = extGetDevType(i);
+        char daddr = extGetDevAddr(i);
+        printf("%d|%d|%d\n", i, dtype, daddr);
+    }
+}
+
+void print_devices(){
+    float i;
+    float devcount = dev_count();
+    
+    print("Device List:\nID|Type|Addr\n");
+    
+    for(i = 0; i < devcount; ++i){
+        char dtype = dev_getType(i);
+        char daddr = dev_getAddr(i);
+        printf("%d|%d|%d\n", i, dtype, daddr);
+    }
+    
+    
+}
+*/
+void cfsu_drive_info(char* drv){
+    super* sup = drv;
+    printf("CFS Drive Info:\nMagic=%d (our=%d)\nVersion=%f2\nTot. Pages=%d\nN. Inodes=%d\nN. DataPages=%d\nInode Start=%d\nBitmap Start=%d\nData Start=%d\n",
+    sup.magic, cfs_magic, sup.version, sup.totalpages, sup.numinodes, sup.numdatapages, sup.inodestart, sup.bitmapstart, sup.datastart);
+}
+/*
+void print_bits() {
+    mov r0, 0xFFFFFFFF;
+    mov r1, 32;
+    while(r1 > 0){
+        dec r1;
+        bit r0, r1; jz ___is_zero;
+        ___is_one:
+            cbs_putchar('1');
+            continue;
+        ___is_zero:
+            cbs_putchar('0');
+            continue;
+    }
+    cbs_newline();
+}
+
+*/

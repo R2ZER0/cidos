@@ -1,0 +1,53 @@
+// CThreads
+
+//PUBLIC API
+// addthread
+// runkernel
+
+#define ZCRT_EXTENDED_MODE
+
+#ifdef ZCRT_EXTENDED_MODE
+
+struct thread {
+    char codeseg;
+    char stackseg;
+    char stackptr;
+    char slice;
+}
+
+#define max_threads 8
+
+thread threadlist[max_threads] = {0};
+float freenum = 0;
+float curthread = 0;
+
+char addthread(char cseg, char sseg, char sptr, char slice) {
+    if(freenum >= max_threads) return -1;
+    
+    thread* tptr = threadlist[freenum++];
+    
+    tptr.codeseg = cseg;
+    tptr.stackseg = sseg;
+    tptr.stackptr = sptr;
+    tptr.slice = slice;
+    return 1;
+}
+
+char runkernel() {
+    
+}
+
+threadSwitch:
+    cli;
+    mov ds, cs;
+    
+    threadlist[curthread].stackptr = esp;
+    
+    
+
+
+extret;
+
+#else
+//error ZCRT_EXTENDED_MODE is required! (Otherwise port it to your env. of choice)
+#endif

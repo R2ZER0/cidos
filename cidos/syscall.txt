@@ -1,0 +1,46 @@
+//Syscall mechanism
+// How it works:
+// place arguments on stack, right-to-left, number of args in ecx, place syscall ID in eax, then do int 32;
+//
+// For example, if one would wish to print a string to the debug screen:
+// push some_str_ptr;
+// mov eax, SYSC_PRINTSTR;
+// int 32;
+
+
+//Pretty much every function in the system is a shared library
+//The OS only provides a mechanism for loading libraries,
+//and loading retieving the function addresses.
+//
+//
+//
+//
+//
+//
+
+#define SYSCALL_MAXID 64
+
+//setup our interrupt handler
+void syscInit(){
+    preserve ebx;
+    mov ebx, cs:0;
+    inttSetInterrupt(32, syscall_interrupt_handler, ebx, INTT_ENABLED);
+}
+
+void syscSetHandler(float id, float addr, float segment){
+    max id, SYSCALL_MAXID;
+    min id, 1;
+}
+
+//where the location of the syscall handlers are stored
+syscall_table:
+alloc SYSCALL_MAX;
+
+syscall_interrupt_handler:
+    min eax, SYSCALL_MAXID;
+    max eax, 0;
+    add eax, syscall_table;
+    jmp cs:#eax;
+    
+syscall_ret:
+    iret;

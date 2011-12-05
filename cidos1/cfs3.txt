@@ -1,0 +1,215 @@
+// CFS 1.3
+
+
+#pragma set NoUnreferencedLeaves false
+#pragma set OutpuFinalListing true
+
+#define cmagic 0xCF3
+#define cversion 13
+
+#define page_size 128
+#define cell_size 48
+#define inode_size 8
+#define dentry_size 16
+
+#define ftype_none 0
+#define ftype_normal 1
+#define ftype_device 2
+
+struct inode {
+    char type;
+    char size;
+    char nlinks;
+    char miscdata[3]; //type-dependant data - dir: data[0] = number of entries; dev: data[0] = major, data[1] = minor
+    char pageid;
+    char pglist;
+};
+
+struct pagelist {
+    char pageid[7];
+    char next;
+};
+
+struct super {
+    char magic;
+    char version;
+    char numinodes;
+    char numdatapages;
+    char inodestart;
+    char bitmapstart;
+    char datastart;
+};
+
+struct dentry {
+    char name[15];
+    char inodeid;
+};
+
+
+
+super* drive = 65536;
+
+
+char* get_datapage_ptr(char id) {
+    return drive + drive.datastart + id*page_size; //
+};
+
+
+char* get_inode_ptr(char id) {
+    return drive + drive.inodestart + id*inode_size;
+};
+
+
+char* get_inode_datapage_ptr(inode* ind, char id) {
+    if(id == 0) return get_datapage_ptr( ind.pageid );
+    
+    //otherwise scan the linked list
+    pagelist* pglist = get_inode_ptr(ind.pglist);
+    --id;
+    
+    while(id >= 7) { pglist = get_inode_ptr(pglist.next); id -= 7; }
+    return get_datapage_ptr( pglist.pageid[id] );
+    
+};
+
+
+char find_free_inode() {
+    inode* inp = get_inode_ptr(0);
+    char i;
+    for(i = 0; i < drive.numinodes; ++i) {
+        if(inp.type == ftype_none) return i;
+    }
+    return -1;
+}
+
+
+char test_bits(char word){
+    preserve eax, ecx;
+    mov ecx, 0;
+    eax = word;
+    test_bits_loop:
+        bit eax, ecx;
+            jz test_bits_succ;
+        cmp ecx, cell_size;
+            jge test_bits_fail;
+        inc ecx;
+    jmp test_bits_loop;
+        
+    
+    test_bits_fail:
+        return -1;
+    test_bits_succ:
+        return ecx;
+}
+
+char find_free_datapage() { //we have to scan the bitmap
+    char i = 0;
+    char* ptr = drive + drive.bitmapstart;
+    while(*ptr == 0xFFFFFFFFFFFF) { ++ptr; } //skip over all fully-used bytes
+    i += (ptr - (drive + drive.bitmapstart))*cell_size;
+    //test the byte itsself
+    float res = test_bits(*ptr);
+    if((i+res) >= drive.numdatapages || res == -1) return -1;
+    i += res;
+    return i;
+}
+
+
+void page_set_bit(char id) {
+    float cid = id/cell_size;
+    fint cid;
+    
+    char* ptr = drive + drive.bitmapstart + cid;
+    
+    preserve ebx, ecx;
+    ecx = id - (cid*cell_size);
+    ebx = ptr;
+    sbit #ebx, ecx;
+}
+
+
+void page_clear_bit(char id) {
+    float cid = id/cell_size;
+    fint cid;
+    
+    char* ptr = drive + drive.bitmapstart + cid;
+    
+    preserve ebx, ecx;
+    ecx = id - (cid*cell_size);
+    ebx = ptr;
+    cbit #ebx, ecx;
+}
+
+
+dentry* get_dentry_ptr( inode* ind, char id ){
+    char pageno = (id * dentry_size)/page_size;
+    fint pageno;
+    char idrem = id % (page_size/dentry_size);
+    return get_inode_datapage_ptr(ind, pageno) + idrem;
+}
+
+
+
+char strcmp(char* a, char *b) {
+    while(*a == *b) {
+        if(*a == '\0'){
+             return 1;
+        }
+    }
+    return 0;
+}
+
+
+
+inode* find_file_in_dir(inode* indp, char* fname) {
+    char i, curdent = 0;
+    while ( i < indp.miscdata[0] ) {
+        dentry* dent = get_dentry_ptr(indp, cudent++);
+        if(dent.name[0] == '\0') continue; //blank entry - ignore
+        if(strcmp(dent.name, fname)==1) return get_inode_ptr(dent.inodeid);
+        ++i;
+    }
+}
+
+
+void copy_fname_part(char** path, char *buffer) {
+    register float c;
+    if(**path == '/'){ ++(*path); }
+    char ccount = 15;
+    while(--ccount > 0){
+        c = **path;
+        *buffer = c;
+        if(c == '\0') return;
+        if(c == '/') {
+            *buffer = '\0';
+            return;
+        }
+        ++(*path);
+        ++buffer;
+    }
+    
+}
+
+
+inode* get_inode_from_pathstr(char* path){
+    char* pathptr = path;
+    char tmpfname[15];
+    //parse the pathstring
+    
+    while(1) {
+        copy_fname_part(&pathptr, tmpfname);
+    }
+}
+
+//PUBLIC API
+// opendir
+// readdirent
+// writedirent
+// closedir
+// open
+// read
+// write
+// close
+// mkfile
+// mkdir
+

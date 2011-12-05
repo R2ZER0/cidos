@@ -1,0 +1,30 @@
+// Keyboard Library
+
+float* debugKeybd;
+
+float kbdWaitForKey() {
+    float key;
+    while(1){
+        if( debugKeybd[0] > 0 ){
+            key = debugKeybd[1];
+            out 3, key;
+            debugKeybd[0] = -1;
+            break;
+        }
+        idle;
+    }
+    return key;
+}
+
+void kbdReadLine(float* buf, float maxchars) {
+    float num = maxchars;
+    register float* ptr = buf;
+    float tchar;
+    while( num > 0 ){
+        tchar = kbdWaitForKey();
+        if(tchar == 13) { break; }
+        *ptr++ = tchar;
+        --num;
+    }
+    *ptr = '\0';
+}

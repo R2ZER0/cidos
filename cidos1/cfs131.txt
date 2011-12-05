@@ -1,0 +1,230 @@
+//CFS 1.31
+
+//#pragma set NoUnreferencedLeaves false
+//#pragma set OutputFinalListing true
+
+#define cfs_magic 0xCF3
+#define cfs_version 1.31
+
+#define page_size 128
+#define cell_size 32
+#define inode_size 8
+#define dentry_size 16
+
+#define ftype_none 0
+#define ftype_normal 1
+#define ftype_dir 2
+#define ftype_device 3
+
+struct inode {
+    char type;
+    char size;
+    char nlinks;
+    char miscdata[3]; //type-dependant data - dir: [0] = number of entries; dev: [0] = major, [1] = minor
+    char pageid;
+    char pglist;
+};
+
+struct pagelist {
+    char pages[7];
+    char next;
+};
+
+struct super {
+    char magic;
+    char version;
+    char totalpages;
+    char numinodes;
+    char numdatapages;
+    char inodestart;
+    char bitmapstart;
+    char datastart;
+};
+
+struct dentry {
+    char name[15];
+    char inodeid;
+};
+
+super* drive = 65536;
+
+char* get_datapage_ptr(char id) {
+    return drive + drive.datastart + id*page_size;
+}
+
+char* get_inode_ptr(char id) {
+    return drive + drive.inodestart + id*inode_size;
+}
+
+char* get_root_inode_ptr() {
+    return get_inode_ptr(0);
+}
+
+
+char get_inode_datapage_idptrptr(inode* ind, float id) { //get the pointer of the pointer id of the datapage for a pointer inode (try say that 10 times really fast!)
+    register float tid = id;
+    pagelist* pglst;
+    
+    if (tid == 0) return get_datapage_ptr( ind.pageid );
+    
+    pglst = get_inode_ptr(ind.pglist);
+    --tid;
+    
+    while (tid >= 7) {
+        pglst = get_inode_ptr( pglst.next );
+        tid -= 7;
+    }
+    
+    return pglst.pages + tid;
+}
+
+char get_inode_datapage_ptr(inode* ind, float id){
+    return get_datapage_ptr(*( get_inode_datapage_ptrptr(ind, id) ));
+}
+
+char find_free_inode() {
+    char i;
+    for(i = 0; i < drive.numinodes; ++i) {
+        inode* tmp_inp = get_inode_ptr(i);
+        if(tmp_inp.type == ftype_none) return i;
+    }
+    return -1;
+}
+
+
+char test_bits(char word){
+    preserve eax, ecx;
+    mov ecx, 0;
+    eax = word;
+    fint eax;
+    test_bits_loop:
+        bit eax, ecx;
+            jz test_bits_succ;
+        inc ecx;
+        cmp ecx, cell_size;
+            jge test_bits_fail;
+    jmp test_bits_loop;
+        
+    
+    test_bits_fail:
+        return -1;
+    test_bits_succ:
+        return ecx;
+}
+
+char find_free_datapage() { //we have to scan the bitmap
+    char i = 0;
+    char* ptr = drive + drive.bitmapstart;
+    while(*ptr == 0xFFFFFFFF) { ++ptr; } //skip over all fully-used bytes
+    i += (ptr - (drive + drive.bitmapstart))*cell_size;
+    //test the byte itsself
+    printf("ptr=%d *ptr=%d ", ptr, *ptr);
+    float res = test_bits(*ptr);
+    printf("res=%d i=%d\n", res, i);
+    if(((i+res) >= drive.numdatapages) || (res == -1)) return -1;
+    i += res;
+    return i;
+}
+
+
+void page_set_bit(char id) {
+    float cid = id/cell_size;
+    fint cid;
+    
+    char* ptr = drive + drive.bitmapstart + cid;
+    
+    preserve ebx, ecx;
+    ecx = id - (cid*cell_size);
+    ebx = ptr;
+    sbit #ebx, ecx;
+}
+
+void page_clear_bit(char id) {
+    float cid = id/cell_size;
+    fint cid;
+    
+    char* ptr = drive + drive.bitmapstart + cid;
+    
+    preserve ebx, ecx;
+    ecx = id - (cid*cell_size);
+    ebx = ptr;
+    cbit #ebx, ecx;
+}
+
+
+dentry* get_dentry_ptr( inode* ind, char id ){
+    char pageno = (id * dentry_size)/page_size;
+    fint pageno;
+    char idrem = id % (page_size/dentry_size);
+    return get_inode_datapage_ptr(ind, pageno) + idrem;
+}
+
+char strcmp(char* a, char *b) {
+    while(*a == *b) {
+        if(*a == '\0') return 1;
+    }
+    return 0;
+}
+
+inode* find_file_in_dir(inode* ind, char* fname) {
+    char i = 0;
+    char curdent = 0;
+    char num_entries = *(ind.miscdata) // ind.miscdata[0]
+    while ( i < num_entries ) {
+        dentry* dent = get_dentry_ptr(ind, curdent++);
+        if(*(dent.name) == '\0') continue; //blank entry - ignore
+        if(strcmp(dent.name, fname)==1) return get_inode_ptr(dent.inodeid);
+        ++i;
+    }
+    return -1;
+}
+
+void copy_fname_part(char** path, char *buffer) {
+    register float c;
+    if(**path == '/'){ ++(*path); }
+    char ccount = 15;
+    while(--ccount > 0){
+        c = **path;
+        *buffer = c;
+        if(c == '\0') return;
+        if(c == '/') {
+            *buffer = '\0';
+            return;
+        }
+        ++(*path);
+        ++buffer;
+    }
+    
+}
+
+
+inode* get_inode_from_pathstr(char* path){
+    char* pathptr = path;
+    char tmpfname[15];
+    //parse the pathstring
+    inode* tmpind = get_root_inode_ptr();
+    
+    while(1) {
+        
+        if(tmpind.type != ftype_dir) return -1;
+        copy_fname_part(&pathptr, tmpfname);
+        
+        char* tmpindres = find_file_in_dir(tmpind, tmpfname);
+        if(tmpindres == -1) return -1;
+        
+        tmpind = tmpindres;
+    }
+}
+
+//PUBLIC API
+// opendir
+// readdirent
+// writedirent
+// closedir
+// open
+// read
+// write
+// close
+// mkfile
+// mkdir
+

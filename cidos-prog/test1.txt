@@ -1,0 +1,13 @@
+// Test CIDOS program
+
+db 0xC1D05;
+db __PROGRAMSIZE__;
+
+mov eax, 1;
+mov ebx, someStr;
+int 32;
+
+mov eax, 0;
+int 32;
+
+someStr: db 'Hello There :D',0;

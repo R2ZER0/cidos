@@ -1,0 +1,85 @@
+#ifndef _CIDUX_BIOS_EXTLIB_
+#define _CIDUX_BIOS_EXTLIB_
+
+// CID-BIOS Extended Bus lib... (because the official ones just don't work for some damned reason (actually was probably just that allocator bug))
+
+define EXT_MAX_DEVICES, 8
+define EXT_MAX_DEVID, 7
+define EXT_CTRL_AREA_SIZE, (32+EXT_MAX_DEVICES)
+define EXT_DEV_ADDRSIZE, 1048576 // 1MiB
+
+float extBusOffset = 65536;
+
+void extQuery(){
+    preserve eax, ebx, ecx, edx;
+    mov gs, extBusOffset;
+    
+    mov gs:#16, EXT_CTRL_AREA_SIZE;
+    mov gs:#17, 1; //query devices
+    
+    mov ecx, EXT_MAX_DEVICES;
+    mov eax, 0;
+    mov edx, extBusOffset;
+    extQuery_loop:
+        //calc i * EXT_DEV_ADDRSIZE
+        mov ebx, eax;
+        mul ebx, EXT_DEV_ADDRSIZE;
+        //place into i * 2
+        mov #edx, ebx; inc edx;
+        //calc (i+1) * EXT_DEV_ADDRSIZE
+        add ebx, EXT_DEV_ADDRSIZE;
+        //place into i * 2 + 1
+        mov #edx, ebx; inc edx;
+        inc eax;
+    loop extQuery_loop;
+    
+}
+
+float extGetDevType(float id){
+    preserve eax, ebx;
+    mov ebx, id;
+    max ebx, 0;
+    min ebx, EXT_MAX_DEVID;
+    
+    mov eax, extBusOffset;
+    add eax, 32;
+    add eax, ebx;
+    
+    return *eax;
+}
+
+float extGetDevAddr(float id){
+    preserve eax;
+    
+    mov eax, id;
+    max eax, 0;
+    min eax, EXT_MAX_DEVID;
+    
+    fshl eax;
+    add eax, extBusOffset;
+    mov eax, #eax;
+    add eax, extBusOffset;
+    add eax, EXT_CTRL_AREA_SIZE;
+    
+    return eax;
+    
+    //return extBusOffset[ id*2 ] + extBusOffset + EXT_CTRL_AREA_SIZE;
+}
+
+float extGetDevSize(float id){
+    //max id, 0;
+    //min id, EXT_MAX_DEVID;
+    //return extBusOffset[ id*2 + 1 ];
+    preserve eax;
+    
+    mov eax, id;
+    max eax, 0;
+    min eax, EXT_MAX_DEVID;
+    
+    fshl eax;
+    inc eax;
+    
+    return *eax;
+}
+
+#endif //_CIDUX_BIOS_EXTLIB_

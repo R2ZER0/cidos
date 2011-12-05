@@ -1,0 +1,100 @@
+#ifndef _CILIB_MENU_
+#define _CILIB_MENU_
+
+//menu object:
+// - title (string ptr)
+// - selected item no
+// - item #0 name
+// - item #0 func
+// - item #n..23 name
+// - item #n..23 func
+#define Menu__maxitems 24
+#define Menu__window_size 8
+//supports up to 24 menu items
+#define MenuTitle 0
+#define MenuSelected 1
+#define MenuWinOffset 2
+#define MenuItemCount 3
+#define MenuItemName 4
+#define MenuItemFunc (4+Menu__maxitems)
+#define Menu__size (4+Menu__maxitems*2)
+
+float* Menu_New(float* title) {
+    float i;
+    float* tmp = sysMalloc(Menu__size);
+    tmp[MenuTitle] = title;
+    //set to 0
+    for( i = MenuSelected ; i < Menu__size ; ++i ){ tmp[i] = 0; }
+    return tmp;
+}
+
+void Menu_Delete(void* this) {
+    sysFree(this);
+}
+
+void Menu_SetSelected(float* this, float id) {
+    this[MenuSelected] = id;
+}
+
+void Menu_AddItem(void* this, char* name, void* func) {
+    float i = this[MenuItemCount];
+    if( i < Menu__maxitems ){
+        this[MenuItemName + i] = name;
+        this[MenuItemFunc + i] = func;
+        this[MenuItemCount] = ++i;
+    }
+}
+
+//render this menu to a screen
+void Menu_Render(void* this, void* screen) {
+    float i, colour;
+    float sel = this[MenuSelected];
+    //float offs = this[MenuWinOffset];
+    float top = this[MenuItemCount];
+    
+    Screen_WriteString(screen, 0, 0, "Menu:", 999 );
+    Screen_WriteString(screen, 6, 0, this[MenuTitle], 090);
+    
+    for( i = 0; i < top; ++i ){
+        
+        //if no function is defined, it's greyed out
+        if( this[MenuItemFunc + i] != 0 ){
+            colour = 999;
+        }else{
+            colour = 444;
+        }
+        
+        //currently selected gets highlight
+        if( i == sel ){ 
+            colour += 222000;
+        }
+        
+        Screen_WriteString( screen, 2, i+2, this[MenuItemName + i], 444 );
+        
+    }
+}
+
+void Menu_SelNext(void* this) {
+    float sel = this[MenuSelected];
+    float count = this[MenuItemCount];
+    ++sel;
+    if(sel >= count){ sel = 0; }
+    else if( sel < 0 ){ sel = count-1; }
+    this[MenuSelected] = sel;
+}
+
+void Menu_SelPrev(void* this) {
+    float sel = this[MenuSelected];
+    float count = this[MenuItemCount];
+    --sel;
+    if(sel >= count){ sel = 0; }
+    else if( sel < 0 ){ sel = count-1; }
+    this[MenuSelected] = sel;
+}
+
+void Menu_Wait(void* this, void* keybd) {
+    //wait for, and act on, input
+    
+}
+
+#endif

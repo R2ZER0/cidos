@@ -1,0 +1,133 @@
+// CiD BIOS/OS
+// Todo:
+// * keyboard
+// * dynamic memory/heap management
+// * program loading
+// * basic interrupt-based API & library
+// * shell
+// * device control
+// * GPU? GUI?
+#define DEBUG 1
+
+INITSYS();
+
+#include <cidos/cidos.txt>
+#include <cidos/extbus_c.txt>
+#include <cidos/debugscrn_c.txt>
+#include <cidos/debugkeybd.txt>
+#include <cidos/inttbl.txt>
+
+void status(char* msg, float perc){
+    //sysPrintLine(msg);
+    scrnPrint(msg);
+}
+
+void INITSYS(){
+    //first we initialise the BIOS/OS/Whatever
+    float i = 0;
+    for( i = 0; i < 8; ++i ){ out i, 0; } //reset registers
+    dbgNext(); //1
+    //initialise external devices
+    extBusOffset = 65536;
+    extQuery();
+    
+    dbgNext(); //2
+    //initialise screen
+    sysScreen = extGetDevAddr(0);
+    
+    out 3, sysScreen;
+    
+    dbgNext(); //3
+    
+    scrnPrint
+    
+    //status("Initialising System...", 20);
+    
+    /*
+    dbgNext(); //4
+    status("...Interrupt Table...", 30);
+    inttAddress = __PROGRAMSIZE__; //TODO find a better place for this
+    inttInit();
+    inttSetInterrupt(32, sysCallHandler, 0, INTT_ENABLED);
+    
+    
+    dbgNext(); //5
+    status("Keyboard", 70);
+    debugKeybd = extGetDevAddr(1);
+    out 4, debugKeybd;
+    
+    //status("Press any key", 90);
+    //kbdWaitForKey();
+    
+    status("Loading User Program", 100);
+    
+    R0 = extGetDevAddr(2);
+    out 5, R0;
+    
+    //if(*R0 < 1){
+    //    showInitScreenMsg("Error: No program!");
+    //}else{
+    //    mov ds, R0;
+    //    inc R0;
+    //    jmpf 0, R0;
+    //}
+    
+    //sysPrintLine("Num: ");
+    //sysPrintNumA(123);
+    //sysPrintNum( 12345, 0, 0, 999 );
+    out 7, #R0;
+    add R0, 2; //start of user program
+    //mov ds, R0;
+    //jmpf 0, R0;    
+    
+    inttDisable();
+    */
+    int 1;
+    __idle();
+}
+
+void interruptHandler(float inum, float icode){
+    sysPrintLine("Caught Interrupt!");
+}
+
+//System call mechanism
+sysCallHandler:
+    add eax, sysCallTable;
+    call #eax;
+iret;
+
+sysCallTable:
+db sys_haltsys;
+db sys_printLine;
+
+
+sys_haltsys:
+    showInitScreen();
+    showInitScreenMsg(sys_haltsys_str);
+    clef;
+    int 1;
+    __idle();
+ret;
+
+sys_haltsys_str: db 'System Halted',0;
+
+sys_printLine:
+    sysPrintLine(ebx);
+ret;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void __idle(){ while(1){ idle; } }

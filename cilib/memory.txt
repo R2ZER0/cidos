@@ -1,0 +1,18 @@
+// Memory allocator
+// for now we cheat and use an existing one
+#ifndef _CILIB_MEMORY_
+#define _CILIB_MEMORY_
+
+#include <memory.txt>
+
+float* sysMalloc(float size) { return malloc(size); }
+void sysFree(float* ptr) { free(ptr); }
+
+void Memory_init() {
+    // we will use the last 32kb of CPU memory for the heap, and the 4k before that for the header
+    // this ofc assumes our program takes a maximum of 28k!
+    initHeap(32768, 16, 32768, 28672);
+    main();
+}
+
+#endif // _CILIB_MEMORY_

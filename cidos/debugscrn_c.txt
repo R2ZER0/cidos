@@ -1,0 +1,125 @@
+// debug screen system
+
+#define CSCRN_SHIFTROWS 2038
+#define CSCRN_LASTLINE 17*2*30
+#define CSCRN_BUFEND 1080
+
+#define SCRN_DEFAULT_COLOUR 0000999
+
+void scrnPrintLF(){
+    scrnScreen[ CSCRN_SHIFTROWS ] = 1;
+    scrnScreenChar = sysScreen + CSCRN_LASTLINE;
+}
+
+void scrnPrintASM(char *str){
+    preserve esi, edi, edx;
+    mov esi, str;
+    mov edi, scrnScreenChar;
+    mov edx, scrnScreen;
+    add edx, SCRN_BUFEND;
+}
+
+void scrnPrint(char* str){
+    register char* strptr = str;
+    while(*strptr){
+        if( *strptr == '\n' || 
+        scrnScreenChar >= (scrnScreen + CSCRN_BUFEND) ){ scrnPrintLF(); }
+        *scrnScreenChar++ = *scrnptr++;
+        *scrnScreenChar++ = SCRN_DEFAULT_COLOUR;
+    }
+}
+
+void scrnPrintLine(char* str){
+    scrnPrint(str);
+    scrnPrintLF();
+}
+
+//this totally wasn't copied from drv_cscr
+
+//void sysPrintNum(float num, float x, float y, float col) {
+//    float ndig, a;
+//    char* charPtr;
+//    a = num;
+//    ndig = 0;
+//    while (a > 0) {
+//        ++ndig;
+//        a /= 10;
+//        fint a;  
+//    }
+//    max ndig,1;
+//    a = num;
+//
+//    charPtr = sysScreen + 2*(y*30 + x + ndig);
+//    sysScreenLinePos += ndig;
+//    while (ndig > 0) {
+//        preserve edx;
+//        mov edx,a;
+//        mod edx,10;
+//        add edx,48;
+//    
+//        sysScreen[charPtr--] = edx;
+//        sysScreen[charPtr--] = col;
+// 
+//        a /= 10;
+//        fint a;
+//    
+//        --ndig;
+//    }
+//}
+
+//Init/Loading screen stuff
+// Displays the CIDOS splash screen, messages and can draw a progress bar
+void showInitScreen(){
+    preserve esi, edi;
+    mov esi, LOGODATA;
+    mov edi, sysScreen;
+    mcopy 1080;
+}
+
+void showInitScreenMsg(char* str){
+    preserve esi, edi;
+    //re-fill that line
+    mov esi, LOGODATA;
+    add esi, 16*2*30;
+    mov edi, sysScreen;
+    add edi, 16*2*30;
+    mcopy 60;
+    //print the string
+    register char* strptr = str;
+    register char* scrnptr = sysScreen + 16*2*30 + 1;
+    float i = 0;
+    for(i = 0; i <= 28; ++i){
+        if(*strptr == '\0'){ break;}
+        *scrnptr++ = *strptr++;
+        ++scrnptr; //skip the colour
+    }
+}
+
+
+void clearInitScreenProgBar(){
+    preserve esi, edi;
+    mov esi, LOGODATA;
+    add esi, 17*2*30;
+    mov edi, sysScreen;
+    add edi, 17*2*30;
+    mcopy 60;
+}
+
+void showInitScreenProgBar(float perc){
+    register float i;
+    register float val = (perc/100)*26;
+    min val,26;
+    max val,0;
+    char* scrnptr = sysScreen + 17*30*2+4;
+    fint val;
+	
+    for(i = 0; i <= val; ++i){
+	       *scrnptr++ = ' ';
+        *scrnptr++ = 0999000;
+    }
+    
+}
+
+LOGODATA:
+#include <cidos/logo.txt> //contains the logo data for conscreen
+ENDLOGODATA:

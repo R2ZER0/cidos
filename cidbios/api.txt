@@ -1,0 +1,41 @@
+//Bios API
+
+void biosf_api_halt() {
+    biosf_api_printstr("System Halted.");
+    jmp __syshalt;
+}
+
+void biosf_api_printstr(char* str){
+    preserve eax, ebx; //eax = strptr, ebx = scrnptr
+    cmp ttydevloc, NULL; je @biosf_api_printstr_ret;
+    
+    eax = str;
+    ebx = ttydevloc;
+    mov ebx:#2038, 1;
+    add ebx, 17*2*30;
+    
+    @biosf_api_printstr_loop:
+    cmp #eax, '\0'; je @biosf_api_printstr_ret;
+        mov #ebx, #eax;
+        inc ebx; inc eax;
+        mov #ebx, 999;
+        inc ebx;
+    jmp @biosf_api_printstr_loop;
+    @biosf_api_printstr_ret:
+}
+
+void biosf_api_printint(char num) {
+    fint num;
+    jmp __error; //not implemented
+}
+
+void biosf_api_printfloat(float num) {
+    jmp __error; //not implemented
+}
+
+void BIOSsetupApi() {
+    mov #BIOS_API_Halt, biosf_api_halt;
+    mov #BIOS_API_PrintStr, biosf_api_printstr;
+    mov #BIOS_API_PrintInt, biosf_api_printint;
+    mov #BIOS_API_PrintFloat, biosf_api_printfloat;
+}

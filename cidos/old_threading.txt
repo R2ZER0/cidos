@@ -1,0 +1,174 @@
+// CIDOS Multithreaded 1.1
+jmp _main;
+
+//for now we will allow a max of 8 threads
+define maxThreads,8;
+threadStackPointer:     alloc maxThreads;
+threadStackOffset:      alloc maxThreads;
+threadStackSize:        alloc maxThreads;
+threadTimeSlice:        alloc maxThreads;
+
+alloc currentThread;
+alloc numThreads;
+
+
+InterruptTable: alloc 512;
+
+_contextSwitch:
+    //switching between threads
+    
+    cli; //make sure there is no recursive switching... HELL!
+    
+    // * restore kernel state
+    mov ds, 0;
+    mov ls, #currentThread;
+    
+    //store stack ptr
+    mov ls:#threadStackPointer, esp;
+    
+    //goto next thread
+    inc #currentThread;
+    mod #currentThread, #numThreads;
+    mov ls,#currentThread;
+    
+    //setup this thread
+    mov ss, ls:#threadStackOffset;
+    mov esp, ls:#threadStackPointer;
+    cpuset 9, ls:#threadStackSize; // ESZ
+    cpuset 65, ls:#threadTimeSlice; // Timer Rate, (Num Instructions)
+    
+    //reset interrupt handler
+    cpuget eax, 29;
+    add eax, 4; //compensation for the following instructions
+    cpuset 66, eax;
+    
+    sti;
+    //load thread!
+extret;
+
+//create new thread:
+// eax = ptr to thread
+// ebx = ptr to stack
+// ecx = stack size
+// edx = time slice
+alloc IFstate;
+createThread:
+    cpuget #IFstate, 32; //make sure we don't re-enable it when not wanted
+    cli; // critical section
+    
+    cmp #numThreads, maxThreads;
+        jge _createThread_err;
+    
+    //store thread state
+    push esi;
+    push edi;
+    push ebp;
+    
+    mov esi, ss;
+    mov edi, esp;
+    
+    //init thread state
+    mov esp, ecx;
+    sub esp, 1;
+    mov ss, ebx;
+    
+    push 0;//LS
+    push 0;//KS
+    push 0;//ES
+    push 0;//GS
+    push 0;//FS
+    push 0;//DS
+    push 0;//SS
+    push 0;//CS
+
+    push 0;//EDI
+    push 0;//ESI
+    push 0;//ESP
+    push 0;//EBP
+    push 0;//EDX
+    push 0;//ECX
+    push 0;//EBX
+    push 0;//EAX
+
+    push 0;   //CMPR
+    push EAX; //IP
+    
+    //int return
+    push 0;
+    push 0;
+
+    //setup list entry
+    mov ebp, threadStackPointer; add ebp, #numThreads;
+    mov #ebp, esp;
+    
+    mov ebp, threadStackOffset; add ebp, #numThreads;
+    mov #ebp, ss;
+    
+    mov ebp, threadStackSize; add ebp, #numThreads;
+    mov #ebp, ecx;
+    
+    mov ebp, threadTimeSlice; add ebp, #numThreads;
+    mov #ebp, edx;
+    
+    inc #numThreads;
+    
+    //restore caller thread
+    mov ss, esi;
+    mov esp, edi;
+    
+    pop ebp;
+    pop edi;
+    pop esi;
+    
+    //return success!
+    mov eax, 1;
+    cpuset 32, #IFstate;
+ret;
+
+_createThread_err:
+    mov eax, -1;
+ret;
+
+void main() {
+    cli;
+    
+    lidtr InterruptTable;
+    mov eax, InterruptTable;
+    add eax, 32*4;
+    mov #eax, _contextSwitch;
+    inc eax;
+    mov #eax, 0; // cs
+    inc eax;
+    mov #eax, 0; // reserved
+    inc eax;
+    mov #eax, 98; // EXT + flags
+    
+    //extended mode
+    stef;
+    
+    //init threadlist
+    mov #currentThread, 0;
+    mov #numThreads, 0;
+    
+    //create thread(s)
+    mov eax, _kernelThread;
+    mov ebx, _kernelStack;
+    mov ecx, 512;
+    mov edx, 128;
+    
+}
+
+
+_idleLoop:
+          idle;
+jmp _idleLoop;
+
+alloc kernLoopCounter;
+
+_kernelThread:
+    //execute kernel functions
+    inc #kernLoopCounter;
+    out 0, #kernLoopCounter;
+ret;
+
+_kernelStack: alloc 512;

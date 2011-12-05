@@ -1,0 +1,75 @@
+// so, BIOS, what should it do?
+// this is VERY minimal.
+// basic CPU setup, just boots the kernel basically.
+// (but providing debug screen functionality)
+jmp __INIT;
+
+// System Memory Layout: (no internal CPU ROM/RAM)
+//
+// 1792b - BIOS code
+// 2k - Console Screen
+// 256b - Keyboard
+// 8k - OS code
+// 8k - OS stack
+// X - Extended Bus & dynamically configured memory
+//
+
+//pointers etc to various things
+define ConScreen, 1792;
+define Keyboard
+#include <cidos/logo.txt>
+
+__INIT:
+// 1. print the lovely init screen! :D
+   mov esi, LOGODATA;
+   mov edi,#ConScreen;
+   mcopy 1080;
+   
+// 2. setup the (kernel) memory stack
+// we will have a size of 1k (we don't need much) starting
+// at the end of the program.
+   cpuset 17, __PROGRAMSIZE__; // set Stack Segment (SS)
+   cpuset 09, 1024; // stack size (ESZ)
+   cpuset 07, 1024; // stack pointer (ESP)
+   
+// 3. setup interrupt table
+// we will use the next K afer the kernel stack
+   mov ebx, __PROGRAMSIZE__;
+   add ebx, 1024; // now ebx points to the table
+   mov #IntTable, ebx;
+   lidtr #IntTable;
+   
+   //bitflags
+   define IFLAG_SETCMPR,3;
+   define IFLAG_DONTSETCS,4;
+   define IFLAG_ENABLED,5;
+   define IFLAG_EXTERNAL,6;
+   
+   // setup int 32
+   mov gs,#IntTable;
+   add gs,32*4;
+   
+   mov gs:#0, __int32; // IP
+   mov gs:#1, cs;      // CS
+   mov gs:#2, 0;       // reserved
+   mov gs:#3, 0;       //flags
+   sbit gs:#3, IFLAG_ENABLED;
+
+// 5. setup system
+   
+// X. setup the rest of the API (TODO)
+
+// Y. load OS kernel
+
+// Z. boot
+
+   
+//if somehow we get here, it's an error.
+clef;
+sti;
+int 1;
+
+__int32:
+    out 0, 32;
+iret;
+

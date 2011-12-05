@@ -1,0 +1,47 @@
+// Hardcoded System memory locations, used to retrieve the actual locations from the BIOS:
+define BIOS_CURRENT_VERSION,    2; //this is the BIOS version this definitions file is for
+define CIDOS_MAGIC_NUMBER, 0xC1D05; //used to mark a raw bus device as CiDOS-compatible
+
+#ifndef BUILTINKERNEL
+//this is data that the BIOS provides us, it will fill these values 
+define BIOS_DATA_START,         0x4000;
+define BIOS_DATA_END,           0x4FFF;
+define BIOS_Magic,              0x4000; //magic identifier, must be 0xC1DB105
+define BIOS_Version,            0x4001; //version number of BIOS
+define BIOS_IdentString,        0x4002; // POINTER to null-terminated ident string
+
+//functions
+// These are all pointers to functions that can be used for basic IO
+define BIOS_API_Halt,          0x4010; //no args, just halts the system
+define BIOS_API_PrintStr,      0x4011; //takes pointer to null-terminated string, will print to TTY
+define BIOS_API_PrintInt,      0x4012; //take 1 int
+define BIOS_API_PrintFloat,    0x4013; //take 1 float
+
+//memory locations of various components
+define BIOS_DeviceCount,    0x4FFF;
+define BIOS_MAX_DEVICES,    256;
+define BIOS_DeviceList,  0x4100;
+define BIOS_DeviceList_End, 0x4500;
+
+#else //otherwise we just put it wherever, the kernel has direct access to it anyway, save some space
+
+BIOS_DATA_START:
+alloc BIOS_Magic;
+alloc BIOS_Version;
+alloc BIOS_IdentString;
+
+alloc BIOS_API_Halt;
+alloc BIOS_API_PrintStr;
+alloc BIOS_API_PrintInt;
+alloc BIOS_API_PrintFloat;
+
+alloc BIOS_DeviceCount;
+define BIOS_MAX_DEVICES, 8;
+BIOS_DeviceList:
+alloc 3*BIOS_MAX_DEVICES;
+BIOS_DeviceList_End:
+BIOS_DATA_END:
+#endif
+
+
+#include <cidbios/devtype.txt>

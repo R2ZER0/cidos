@@ -1,0 +1,17 @@
+void Beep(float devaddr, float freq, float duration) {
+    float *freq_ptr = devaddr + 1; //Freq
+    float *dr_ptr = devaddr + 2; //Duration
+    
+    *freq_ptr = freq;
+    *dr_ptr = duration;
+}
+
+float CanBeep(float devaddr) {
+    float *av_ptr = devaddr + 4;
+    return *av_ptr;   
+}
+
+float RestartDriver(float devaddr) {
+    float *rs_ptr = devaddr + 16;
+    *rs_ptr = 1;
+}

@@ -1,0 +1,8 @@
+#include <cidbios/apphead.txt>
+#include <cidbios/lib/screen.txt>
+
+void main(){
+    cbs_init(NULL);
+    
+    printf("Hello, World!");
+}

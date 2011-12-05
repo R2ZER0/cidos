@@ -1,0 +1,91 @@
+// debug screen system
+#pragma language zasm
+
+define CSCRN_SHIFTROWS,2038;
+
+alloc debugScreen;
+
+dbgLine: // string // print line to console
+    mov gs, #debugScreen;
+    mov gs:#CSCRN_SHIFTROWS, 1; //shift rows up by one
+    
+    //leave R0 as char pointer
+    mov R1,0; //x
+    mov R2,17;//y
+    mov R3,999;//col
+    call dbgPrint;
+ret;
+
+
+dbgPrint: // string, x, y, colour // print string, to location with colour
+    mov gs, #debugScreen;
+    //calc address on screen
+    mov eax,R2;
+    mul eax,30;
+    add eax,R1;
+    mul eax,2;
+    dbgPrintLoop:
+        mov ebx,#R0; // ebx = current char
+        cmp ebx,0; je dbgPrintEnd; //check for null
+        mov gs:#eax,ebx; //put char
+        inc eax;
+        mov gs:#eax,R3; //put colour
+        inc eax;
+    jmp dbgPrintLoop;
+    dbgPrintEnd:
+ret;
+
+showInitScreen: // no args
+    mov esi,LOGODATA; mov edi,#debugScreen;
+    mcopy 1080;
+    
+    mov R0,CIDOS_VERSIONSTR;
+    mov R1,6;
+    mov R2,14;
+    mov R3,999;
+    call dbgPrint;
+ret;
+
+showInitScreenMsg: // message to print // shows the message on the init screen
+    mov esi, LOGODATA;
+    add esi, 16*2*30;
+    mov edi, #debugScreen;
+    add edi, 16*2*30;
+    mcopy 60;
+    
+    mov R1,1;
+    mov R2,16;
+    mov R3,999;
+    call dbgPrint;
+ret;
+
+clearInitScreenProgBar: // no args
+    mov esi, LOGODATA;
+    add esi, 17*2*30;
+    mov edi, #debugScreen;
+    add edi, 17*2*30;
+    mcopy 60;
+ret;
+
+showInitScreenProgBar: // length (0 <= L <= 26)
+    push gs; push eax; push ecx;
+    mov gs, #debugScreen;
+    //bounds checks
+    max R0,26;
+    min R0,0;
+    //eax = pointer on scrn
+    mov eax,17*30*2+4;
+    mov ecx,R0;
+    inc ecx;
+    showInitScreenProgBarLoop:
+        mov gs:#eax,' ';
+        inc eax;
+        mov gs:#eax,999000;
+        inc eax;
+    loop showInitScreenProgBarLoop;
+    pop ecx; pop eax; pop gs;
+ret;
+
+LOGODATA:
+#include <cidos/logo.txt> //contains the logo data for conscreen
+ENDLOGODATA:

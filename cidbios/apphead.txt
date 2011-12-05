@@ -1,0 +1,18 @@
+//#pragma CPUName CiDBIOS
+//#pragma set OutputOffsetsInListing false
+//#pragma set OutputLabelsInListing false
+//#pragma set GenerateComments false
+//#pragma set OutputFinalListing true
+//#pragma set NoUnreferencedLeaves false
+#pragma set OptimizeLevel 0
+#define BUILTINKERNEL
+#include <cidbios/bios2.txt>
+#define sys_print biosf_api_printstr
+#define sys_halt biosf_api_halt
+_KERNEL_BootPoint:
+for(R0 = 0; R0<8; ++R0){ out R0, 0; }
+R0=0;
+#ifndef inlinecidos
+main();
+int 1;
+#endif
