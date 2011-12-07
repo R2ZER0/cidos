@@ -1,4 +1,5 @@
 // CFS 1.31 Test
+#pragma searchpath cidos/
 //#pragma set OutputFinalListing true
 #include <cidbios/apphead.txt>
 #include <cidbios/lib/screen.txt>

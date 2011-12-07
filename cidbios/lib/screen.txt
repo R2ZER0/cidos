@@ -1,13 +1,9 @@
 // CiDBIOS Screen Library
 
-#ifndef CIDUX_BIOS
-define ttydevloc, 65536;
-#endif
-
-
 char* cbs_ptr = 0;
 char cbs_pos = 0;
 char cbs_col = 999;
+
 
 void cbs_init(char* devptr) {
     cbs_pos = 0;

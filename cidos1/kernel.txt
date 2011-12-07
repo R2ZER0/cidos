@@ -1,0 +1,44 @@
+// CiD-UX Kernel
+// A Simply DynObj loader that loads it's components from memory, and uses them
+//
+//
+#define BUILTINKERNEL
+#pragma searchpath cidos/
+#include <cidbios/apphead.txt>
+#include <cidbios/lib/screen.txt>
+#include <cidos1/dynobj.txt>
+
+void* _cbs_libptr = NULL;
+void* _cbs_init = NULL;
+void* _cbs_printf = NULL;
+
+#define bprint biosf_api_printstr
+
+void loadlib_cbs(char* libptr) {
+    _cbs_libptr = libptr;
+    _cbs_init = dol_getfunc(libptr, "init");
+    _cbs_printf = dol_getfunc(libptr, "printf");
+
+    printf("Got Funcs: init=%d, printf=%d", _cbs_init, _cbs_printf);    
+
+    push ttydevloc;
+    mov ecx, 1;
+    callf _cbs_init, _cbs_libptr;
+}
+
+void main() {
+    cbs_init(NULL);
+    
+    printf("Loading lib from %d\n", __CBSLIB__);
+    loadlib_cbs(__CBSLIB__);
+    
+    bprint("Printing...\n");
+    push "Hi!";
+    mov ecx, 1;
+    callf _cbs_printf, _cbs_libptr;
+    bprint("Done!");
+}
+
+
+__CBSLIB__:
+#include <cidbios/lib_so/screen.txt>

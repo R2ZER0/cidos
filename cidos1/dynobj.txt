@@ -1,0 +1,58 @@
+// Dynamic Object Liner
+//
+// Dynamic Object format:
+// magic - 0x50
+// version number
+// number of functions
+// object size (binary + header + functable)
+// function 0 name (0-term. string) ptr (rel to start of obj, can be in binary data)
+// function 0 func ptr (rel to start of obj)
+// ...
+// binary data start
+
+struct do_header {
+    float magic;
+    float version;
+    float nfuncs;
+    float objsize;
+};
+#define sizeof_do_header 4
+    
+float dol_getversion(do_header* doptr){
+    return doptr.version;
+}
+
+float dol_strcmp(char *src, *dest) {
+  register char *srcptr, *destptr;
+
+  srcptr = src;
+  destptr = dest;
+  while (*srcptr == *destptr) {
+    if (*srcptr == 0) return 0;
+    ++srcptr; ++destptr;
+  }
+  return (*srcptr - *destptr);
+}
+
+
+void* dol_getfunc(do_header* dobj, char* fname){
+    char num_funcs = dobj.nfuncs;
+    printf("NFUNCS=%d", num_funcs);
+    char cur_funcid = 0;
+    char* dftbl = dobj + 4;
+    while(cur_funcid++ < num_funcs){
+        char* tnamep = *(dftbl + 2*cur_funcid) + dobj;
+        printf("[%d] FNAME=%s", cur_funcid, tnamep);
+        char* tfnamep = fname;
+        while(*tfnamep == *tnamep){
+            if(*tfnamep == '\0'){
+                return dobj[2*cur_funcid+1] + dobj;
+            }
+            ++tfnamep;
+            ++tnamep;
+        }
+    }
+    return 0;
+}
+
+
