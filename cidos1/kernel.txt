@@ -2,7 +2,9 @@
 // A Simply DynObj loader that loads it's components from memory, and uses them
 //
 //
+//#pragma language hlzasm
 #define BUILTINKERNEL
+//#define DEBUG
 #pragma searchpath cidos/
 #include <cidbios/apphead.txt>
 #include <cidbios/lib/screen.txt>
@@ -19,26 +21,56 @@ void loadlib_cbs(char* libptr) {
     _cbs_init = dol_getfunc(libptr, "init");
     _cbs_printf = dol_getfunc(libptr, "printf");
 
-    printf("Got Funcs: init=%d, printf=%d", _cbs_init, _cbs_printf);    
+#ifdef DEBUG
+    printf("Got Funcs: init=%d, printf=%d\n", _cbs_init, _cbs_printf);    
+#endif
 
-    push ttydevloc;
-    mov ecx, 1;
-    callf _cbs_init, _cbs_libptr;
+//    push ttydevloc;
+    //mov ecx, 1;
+    //callf _cbs_init, _cbs_libptr;
+    r0 = libptr;
+    r1 = _cbs_init;
+    nop;
+    nop;
+    callf r1, r0;
 }
 
 void main() {
     cbs_init(NULL);
     
-    printf("Loading lib from %d\n", __CBSLIB__);
-    loadlib_cbs(__CBSLIB__);
+    printf("loc=%d\n", a_label_str);
     
-    bprint("Printing...\n");
-    push "Hi!";
-    mov ecx, 1;
-    callf _cbs_printf, _cbs_libptr;
-    bprint("Done!");
+    jmp a_label;
+    
+    //printf("Loading lib from %d\n", __CBSLIB__);
+    //loadlib_cbs(__CBSLIB__);
+    
+    //bprint("Printing...\n");
+    //push "Hi!";
+    //mov ecx, 1;
+    //callf _cbs_printf, _cbs_libptr;
+    //bprint("Done!");
 }
 
-
+//#pragma language zasm
 __CBSLIB__:
 #include <cidbios/lib_so/screen.txt>
+//#include <cidbios/lib/screen_so_src.txt>
+
+//#pragma language zasm
+
+offset 1234;
+nop;
+nop;
+a_label:
+push a_label_str;
+push a_label_str;
+mov ecx, 2;
+call printf;
+add esp, 2;
+nop;
+nop;
+int 1;
+
+string a_label_str, "loc=%d\n";
+

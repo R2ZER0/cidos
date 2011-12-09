@@ -37,20 +37,25 @@ float dol_strcmp(char *src, *dest) {
 
 void* dol_getfunc(do_header* dobj, char* fname){
     char num_funcs = dobj.nfuncs;
-    printf("NFUNCS=%d", num_funcs);
+#ifdef DEBUG
+    printf("VER=%d NF=%d SZ=%d\n", dobj.version, num_funcs, dobj.objsize);
+#endif
     char cur_funcid = 0;
-    char* dftbl = dobj + 4;
+    char* dftbl = dobj + sizeof_do_header;
     while(cur_funcid++ < num_funcs){
-        char* tnamep = *(dftbl + 2*cur_funcid) + dobj;
-        printf("[%d] FNAME=%s", cur_funcid, tnamep);
+        char* tnamep = *dftbl++ + dobj;
+#ifdef DEBUG
+        printf("[%d] FNAME=%s\n", cur_funcid, tnamep);
+#endif
         char* tfnamep = fname;
         while(*tfnamep == *tnamep){
             if(*tfnamep == '\0'){
-                return dobj[2*cur_funcid+1] + dobj;
+                return *dftbl; //DO NOT ADD OBJP WE ARE USING FARCALL!!!!!... Idiot...
             }
             ++tfnamep;
             ++tnamep;
         }
+        ++dftbl;
     }
     return 0;
 }

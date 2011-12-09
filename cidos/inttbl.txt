@@ -6,12 +6,13 @@ float* inttAddress;
 #define INTT_ENABLED 32
 #define INTT_ISNMI 64
 
-#define INTT_MAXNUM 64
-#define INTT_ENTRY_DEFAULT NULL
+#define INTT_NUM_INTS 256
+#define INTT_ENTRY_DEFAULT intt_intEntryPoint
 
 void inttInit() {
     lidtr inttAddress;
     stef;
+    sti;
 }
 
 void inttDisable() {
@@ -20,7 +21,7 @@ void inttDisable() {
 
 void inttSetInterrupt(float num, float* addr, float* codeseg, float flags) {
     float* ptr = inttAddress + num*4;
-    if( addr != NULL ){
+    if( addr != 0 ){
         ptr[0] = addr;
     }else{
         ptr[0] = intt_intEntryPoint;
@@ -30,9 +31,9 @@ void inttSetInterrupt(float num, float* addr, float* codeseg, float flags) {
     ptr[3] = flags;
 }
 
-void inttSetAllHandlers(){
+void inttSetAllUserHandlers(){
     float i;
-    for(i = 32; i < INTT_MAXNUM; ++i){
+    for(i = 32; i < INTT_NUM_INTS; ++i){
         inttSetInterrupt(i, INTT_ENTRY_DEFAULT, 0, INTT_ENABLED);
     }
 }

@@ -1,5 +1,5 @@
 // CiDBIOS Screen Library
-offset 0;
+//offset 0;
 #pragma set OutputBinaryListing true
 //library header
 db 0x50;
@@ -8,81 +8,82 @@ db 4; //number of funcs
 db __PROGRAMSIZE__;
 
 //function table - stringptr, funcptr
-db cbs_init_str, cbs_init_ext;
-db cbs_setcol_str, cbs_setcol_ext;
-db cbs_print_str, cbs_print_ext;
-db cbs_printf_str, cbs_printf_ext;
+db cbsdo_init_str, cbsdo_init_ext;
+db cbsdo_setcol_str, cbsdo_setcol_ext;
+db cbsdo_print_str, cbsdo_print_ext;
+db cbsdo_printf_str, cbsdo_printf_ext;
 
-string cbs_init_str, "init";
-string cbs_setcol_str, "setcolour";
-string cbs_print_str, "print";
-string cbs_printf_str, "printf";
+string cbsdo_init_str, "init";
+string cbsdo_setcol_str, "setcolour";
+string cbsdo_print_str, "print";
+string cbsdo_printf_str, "printf";
 
 //functions for external use
-cbs_init_ext:
+cbsdo_init_ext:
+out 0, 1337;
     push ds;
     mov ds, cs;
     
-    cbs_pos = 0;
+    cbsdo_pos = 0;
     rstack eax, esp:4;
-    cbs_ptr = ttydevloc = eax;
-    cbs_ptr += 17*30*2;
-    //ttydevloc[2042] = 000;
-    //ttydevloc[2041] = 1;
-    cbs_newline();
+    cbsdo_ptr = devloc = eax;
+    cbsdo_ptr += 17*30*2;
+    //devloc[2042] = 000;
+    //devloc[2041] = 1;
+    cbsdo_newline();
     
     pop ds;
 retf;
 
-cbs_setcol_ext:
+cbsdo_setcol_ext:
     push ds;
     mov ds, cs;
     rstack eax, esp:4;
-    cbs_col = eax;
+    cbsdo_col = eax;
     pop ds;
 retf;
 
-cbs_print_ext:
+cbsdo_print_ext:
     push ds;
     mov ds, cs;
     
     rstack eax, esp:3;
-    cbs_putstr(eax);
+    cbsdo_putstr(eax);
     
     pop ds;
 retf;
     
 
-char* ttydevloc = 65536;
-char* cbs_ptr = 0;
-char cbs_pos = 0;
-char cbs_col = 999;
+char* devloc = 65536;
+char* cbsdo_ptr = 0;
+char cbsdo_pos = 0;
+char cbsdo_col = 999;
 
-void cbs_setcol(char col){
-    cbs_col = col;
+void cbsdo_setcol(char col){
+    cbsdo_col = col;
 }
 
-void cbs_newline(){
-    cbs_pos = 0;
-    ttydevloc[2038] = 1;
+void cbsdo_newline(){
+    cbsdo_pos = 0;
+    devloc[2038] = 1;
 }
 
-void cbs_putchar(char c){
-    if(cbs_pos >= 60) cbs_newline();
-    if(c == '\n'){ cbs_newline(); }
+void cbsdo_putchar(char c){
+    if(cbsdo_pos >= 60) cbsdo_newline();
+    if(c == '\n'){ cbsdo_newline(); }
     else{
-        cbs_ptr[cbs_pos++] = c;
-        cbs_ptr[cbs_pos++] = cbs_col--;
+        cbsdo_ptr[cbsdo_pos++] = c;
+        cbsdo_ptr[cbsdo_pos++] = cbsdo_col--;
     }
 }
 
-void cbs_putstr(char* str){
+void cbsdo_putstr(char* str){
     while(*str != '\0'){
-         cbs_putchar(*str++);
+         cbsdo_putchar(*str++);
     }
 }
 
-void cbs_putint(float i){ //assumes ss == ds
+void cbsdo_putint(float i){ //assumes ss == ds
     
     char is_neg = 0;
     preserve eax, ebx, ecx; //eax = current number, ebx = tmp for converting to ascii, ecx = counter
@@ -93,48 +94,48 @@ void cbs_putint(float i){ //assumes ss == ds
     
     eax = i;
     fint eax;
-        cmp eax, 0; je cbs_putint_zero;
+        cmp eax, 0; je cbsdo_putint_zero;
         
     push '\0';
     mov ecx, 1;
-    cbs_putint_loop:
+    cbsdo_putint_loop:
         fint eax;
-        cmp eax, 0; jle cbs_putint_fin;
+        cmp eax, 0; jle cbsdo_putint_fin;
         mov ebx, eax;
         mod ebx, 10;
         add ebx, 48; //ASCII offset
         push ebx;
         inc ecx;
         div eax, 10;
-    jmp cbs_putint_loop;
+    jmp cbsdo_putint_loop;
         
         
-    cbs_putint_zero:
-        cbs_putchar('0');
+    cbsdo_putint_zero:
+        cbsdo_putchar('0');
         return;
     
-    cbs_putint_fin:
+    cbsdo_putint_fin:
         if(is_neg==1){ push '-'; }
-        cbs_putstr(esp+1);
+        cbsdo_putstr(esp+1);
         add esp, ecx; //reset stack
         return;
 }
 
-void cbs_putfloat(float i, float decplc) { 
+void cbsdo_putfloat(float i, float decplc) { 
     float frac = i;
     ffrac frac;
     while(decplc-- > 0){
         frac *= 10;
     }
-    cbs_putint(i);
-    cbs_putchar('.');
+    cbsdo_putint(i);
+    cbsdo_putchar('.');
     if(frac < 0){ neg frac; }
-    cbs_putint(frac);
+    cbsdo_putint(frac);
 }
 
 
 
-cbs_printf_ext:
+cbsdo_printf_ext:
     push ds;
     mov ds, cs;
     
@@ -142,54 +143,54 @@ cbs_printf_ext:
     rstack r0, ebp:1;
     mov r2, 3; //offset from ebp
     
-    @printf_loop:
+    @cbsdo_printf_loop:
         mov r1, #r0; inc r0;
-        cmp r1, '\0'; jle @printf_fin;
-        cmp r1, '%'; je @printf_ctrl;
+        cmp r1, '\0'; jle @cbsdo_printf_fin;
+        cmp r1, '%'; je @cbsdo_printf_ctrl;
         push r1;
-        call cbs_putchar;
+        call cbsdo_putchar;
         inc esp;
-        //cbs_putchar(r1);
-    jmp @printf_loop;
+        //cbsdo_putchar(r1);
+    jmp @cbsdo_printf_loop;
     
-    @printf_ctrl:
+    @cbsdo_printf_ctrl:
         mov r1, #r0; inc r0;
-        cmp r1, 's'; je @printf_pstr;
-        cmp r1, 'd'; je @printf_pint;
-        cmp r1, 'f'; je @printf_pflt;
+        cmp r1, 's'; je @cbsdo_printf_pstr;
+        cmp r1, 'd'; je @cbsdo_printf_pint;
+        cmp r1, 'f'; je @cbsdo_printf_pflt;
         push '%';
-        call cbs_putchar;
+        call cbsdo_putchar;
         inc esp;
-        //cbs_putchar('%');
-    jmp @printf_loop;
+        //cbsdo_putchar('%');
+    jmp @cbsdo_printf_loop;
     
-    @printf_pstr:
+    @cbsdo_printf_pstr:
         rstack r1, ebp:r2; inc r2;
         //push r1;
-        //call cbs_putstr;
+        //call cbsdo_putstr;
         //inc esp;
-        cbs_putstr(r1);
-    jmp @printf_loop;
+        cbsdo_putstr(r1);
+    jmp @cbsdo_printf_loop;
     
-    @printf_pint:
+    @cbsdo_printf_pint:
         rstack r1, ebp:r2; inc r2;
         //push r1;
-        //call cbs_putstr;
+        //call cbsdo_putstr;
         //inc esp;
-        cbs_putint(r1);
-    jmp @printf_loop;
+        cbsdo_putint(r1);
+    jmp @cbsdo_printf_loop;
     
-    @printf_pflt:
+    @cbsdo_printf_pflt:
         mov r1, #r0; inc r0;
         sub r1, 48; //convert from ascii
         push r1;
         rstack r1, ebp:r2; inc r2;
         push r1;
-        call cbs_putfloat;
+        call cbsdo_putfloat;
         add esp, 2;
-    jmp @printf_loop;
+    jmp @cbsdo_printf_loop;
     
-    @printf_fin:
+    @cbsdo_printf_fin:
     leave;
     pop ds;
 retf;

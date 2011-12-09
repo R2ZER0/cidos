@@ -1,13 +1,13 @@
 //#pragma CPUName CiDBIOS
-#pragma set OutputOffsetsInListing false
-#pragma set OutputLabelsInListing true
-#pragma set GenerateComments false
-#pragma set OutputFinalListing true
+//#pragma set OutputOffsetsInListing false
+//#pragma set OutputLabelsInListing true
+//#pragma set GenerateComments false
+//#pragma set OutputFinalListing true
 //#pragma set OutputBinaryListing true
-#pragma set NoUnreferencedLeaves false
+//#pragma set NoUnreferencedLeaves false
 //#pragma set file out.txt
 //#pragma set OutputToFile true
-#pragma searchpath cidos/
+//#pragma searchpath cidos/
 #pragma set OptimizeLevel 0
 #define BUILTINKERNEL
 #include <cidbios/bios2.txt>

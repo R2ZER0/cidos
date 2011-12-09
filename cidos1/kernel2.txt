@@ -1,0 +1,80 @@
+// Kernel2
+#pragma searchpath cidos
+#define CIDOS_DEBUG
+#include <cidbios/apphead.txt>
+#include <cidbios/lib/screen.txt>
+#include <cidbios/lib/device.txt>
+#include <cidos/inttbl.txt>
+
+char* sys_screen = NULL;
+char* sys_heap = NULL;
+char  sys_heap_size = 128*1024;
+
+//System Heap
+
+struct heap_part {
+    float used;
+    float size; //size includes header (2)
+};
+
+heap_part* alloc_next_free_part(heap_part* tprt){
+    while(tprt.used != 0){ tprt += tprt.size; }
+    return tprt;
+}
+
+void alloc_split_part(heap_part* tprt, float partasize){ //split a part into two smaller parts
+    float partbsize = tprt.size - partasize;
+    tprt.size = partasize;
+    tprt += partasize;
+    
+    tprt.used = 0;
+    tprt.size = partbsize;
+}
+
+char* malloc(float memsize) {
+    heap_part* tpart = alloc_next_free_part(sys_heap);
+    while(tpart.size < memsize){ tpart = alloc_next_free_part(tpart); }
+    
+    
+}
+
+void initp(char* what){
+#ifdef CIDOS_DEBUG
+    printf("Init: %s\n", what);
+#else
+    nop;
+#endif
+}
+
+void main() {
+    //init screen
+    cbs_init(NULL);
+    print("CID-UX OS v0.21 (c) 2011 CiD\n");
+    
+    //init devices
+    sys_screen = ttydevloc;
+    initp("ram");
+    sys_heap = dev_find(DEVT_RAM);
+    
+    if(sys_heap <= 0){
+        print("FATAL ERROR: No RAM Found!\n");
+        return;
+    }
+    
+    //setup interrupt table
+    initp("inter.tble.");
+    inttAddress = __PROGRAMSIZE__;
+    inttSetAllUserHandlers();
+    inttInit();
+    
+    //init heap
+    heap_part* rootpart = sys_heap;
+    rootpart.used = 0;
+    rootpart.size = sys_heap_size;
+    
+    
+}
+
+void interruptHandler(char inum, char icode){
+    nop;
+}
