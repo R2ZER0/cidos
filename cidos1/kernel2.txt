@@ -12,31 +12,6 @@ char  sys_heap_size = 128*1024;
 
 //System Heap
 
-struct heap_part {
-    float used;
-    float size; //size includes header (2)
-};
-
-heap_part* alloc_next_free_part(heap_part* tprt){
-    while(tprt.used != 0){ tprt += tprt.size; }
-    return tprt;
-}
-
-void alloc_split_part(heap_part* tprt, float partasize){ //split a part into two smaller parts
-    float partbsize = tprt.size - partasize;
-    tprt.size = partasize;
-    tprt += partasize;
-    
-    tprt.used = 0;
-    tprt.size = partbsize;
-}
-
-char* malloc(float memsize) {
-    heap_part* tpart = alloc_next_free_part(sys_heap);
-    while(tpart.size < memsize){ tpart = alloc_next_free_part(tpart); }
-    
-    
-}
 
 void initp(char* what){
 #ifdef CIDOS_DEBUG

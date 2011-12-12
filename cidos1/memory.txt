@@ -1,0 +1,77 @@
+char* heap_ptr = 0;
+float heap_parts = 0;
+float heap_size = 0;
+float heap_used = 0;
+
+
+struct heap_part {
+    float used;
+    float size; //size includes header (2)
+};
+
+void heap_format(char* hptr, hsize){
+    heap_ptr = hptr;
+    heap_size = hsize;
+    heap_parts = 2; //root part and end part
+    heap_used = 4; //sizeof heap_part header * 2
+    hptr.used = 0;
+    hptr.size = (hsize - heap_used);
+    
+    hptr += hptr.size;
+    
+    hptr.used == 1;//end part alwyas has size as -1
+    hptr.size == -1;
+}
+
+void heap_merge_sweep() {
+    heap_part* tpart = heap_ptr;
+    heap_part* npart = tpart + tpart.size;
+    while(npart.size > 0){ //no part should be able to have a size less then 32 really
+        if((tpart.used == 0) && (npart.used == 0)){
+            heap_merge_part(tpart);
+            npart = tpart + tpart.size;
+        }else{
+            tpart = npart;
+            npart += npart.size;
+        }
+    }
+}
+
+void heap_merge_part(heap_part* parta){
+    heap_part* partb = parta + parta.size;
+    if((parta.used == 1) || (partb.used == 1)) return -1;
+    parta.size += partb.size;
+    partb.size = 0;
+    --heap_parts;
+    return 1;
+}
+
+void heap_split_part(heap_part* tprt, float partasize){ //split a part into two smaller parts
+    float partbsize = tprt.size - partasize;
+    tprt.size = partasize;
+    tprt += partasize;
+    
+    tprt.used = 0;
+    tprt.size = partbsize;
+    ++heap_parts;
+}
+
+char* malloc(float memsize) {
+    memsize += 2; //plus room for header
+    heap_part* tpart = heap_ptr;
+    while(tpart.size < memsize || tpart.used == 1){
+		if(tpart.size < 0) return 0; //NULL
+		tpart += tpart.size;
+	}
+    
+    if((tpart.size + 32) < (memsize)){
+        alloc_aplit_part(tpart, memsize);
+    }
+    
+    return tpart + 2;
+}
+
+void free(char* mem){
+    heap_part* tpart = mem - 2;
+    tpart.used = 0;
+}

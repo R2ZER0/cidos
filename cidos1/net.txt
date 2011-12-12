@@ -1,0 +1,48 @@
+struct cnet_packet_header {
+	float source;
+	float dest; //Net addr + port*65536 : 65536 possible addrs, 1024 possible ports
+	float datasize; //so far max = 123
+};
+
+
+
+#define CNET_CHANNEL_P 0
+#define CNET_CHANNEL_S 1
+#define CNET_NUM_CHANNELS 2
+
+#define CNET_PACKET_MAXDATA (128-(sizeof(cnet_packet_header)+))
+
+#define CNET_SEND_VAL (cnet_adapter[CNET_CHANNEL_P])
+#define CNET_RECV_VAL (cnet_adapter[CNET_CHANNEL_S])
+
+char* cnet_adapter = 65536;
+
+#define CNET_QUEUE_SIZE 4
+char cnet_recv_queue[CNET_QUEUE_SIZE] = {0};
+char cnet_send_queue[CNET_QUEUE_SIZE] = {0};
+
+char cnet_try_send(char* packet) {
+	
+}
+
+void cnet_service {
+	if(sending == 1){
+		//wait until other side returns true on secondary
+		if(CNET_RECV_VAL == 1){
+			sending = 0;
+			return;
+		}
+	}else{
+		//check if the other side want to send something
+		//1 = attempting to send (so wait for next service), 2 = sent - you can read now
+		if(CNET_SEND_VAL == 2){
+			//got a packet - recieve it!
+			//allocate some memory
+			//copy into that memory
+			//add to table of incoming packets
+			//for application to recieve
+		}
+	}
+}
+
+			
