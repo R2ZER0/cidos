@@ -1,0 +1,50 @@
+// CUX-PC Memory Layout:
+
+//system memory locations
+define sm_null, 0;
+define sm_inttbl, 16*1024;
+define sm_kstack, 17*1024;
+define sm_ram0, 64*1024;
+define sm_ram1, 192*1024;
+define sm_eeprom, 320*1024;
+define sm_con0, 576*1024;
+define sm_con1, 578*1024;
+define sm_video, 580*1024;
+define sm_dev0, 708*1024;
+define sm_dev1, 1732*1024;
+define sm_dev2, 2756*1024;
+define sm_keyboard, 3780*1024;
+define sm_net, 3781*1024;
+define sm_ports, 3782*1024;
+
+//system ports
+define sp_datetime, 0; //In
+define sp_ramclear, 1;
+//port 2 reserved
+define sp_netint, 3;
+define sp_videoint, 4;
+define sp_dev0int, 5;
+define sp_dev1int, 6;
+define sp_dev2int, 7;
+
+
+// 0 - 16k  : system bios/os
+// 16 - 17k : interrupt table
+// 17-20k   : kernel stack
+// 20-64k   : reserved, bundle modules, etc
+
+// 64-192k   : memory chip 0 (128k)
+// 192-320k  : memory chip 1 (128k)
+// 320-576k  : EEPROM/HDD (256k)
+
+// 576-578k  : console screen 0
+// 578-580k  : console screen 1
+// 580-708k  : GPU/Video Memory (128k)
+
+// 708-1732k : Device Bus 1 (1M)
+//    -2756k : Device Bus 2 (1M)
+//    -3780k : Device Bus 3 (1M)
+
+// 3780k     : keyboard
+// 3781k     : network adapter
+// 3782k+    : primary input drive

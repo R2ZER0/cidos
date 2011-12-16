@@ -1,0 +1,24 @@
+// put logo library
+//#pragma set OutputBinaryListing true
+
+db 0x50;
+db 1; //version
+db 1; //number of funcs
+db __PROGRAMSIZE__;
+
+db putlogo_str, putlogo_ext;
+
+string putlogo_str, "putlogo";
+
+putlogo_ext:
+    rstack edi, esp:3;
+    
+    cpuget esi, 16;
+    add esi, __LOGODATA__;
+    //add esi, cs;
+    mcopy 1080;
+retf;
+    
+
+__LOGODATA__:
+#include <cidos/cidos/logo.txt>

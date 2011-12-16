@@ -1,0 +1,104 @@
+jmp __kinit;
+
+//#pragma set NoUnreferencedLeaves false
+#pragma searchpath cidos
+#include <cidos1/memloc.txt>
+
+__kinit:
+// Setup the kernel stack
+mov ss, sm_kstack;
+cpuset 9, 3*1024;
+cpuget esp, 9;
+
+
+Kinit();
+int 1;
+
+//#define DEBUG
+#include <cidbios2/screen.txt>
+#include <cidos1/memory.txt>
+#include <cidos1/dynobj.txt>
+
+void phs() { printf("S/U=%d/%d P=%d\n", heap_size, heap_used, heap_parts); }
+/*
+void do_strain_test() {
+    char* tmem = 0;
+    char tmemsz = 1;
+    
+    while(1){
+        
+        //printf("B[%d]=%d F=%d\n", tmemsz, tmem, (heap_size - heap_used));
+        tmem = malloc(tmemsz);
+        //out 2, tmemsz;
+        
+        printf("A[%d]=%d F=%d\n", tmemsz, tmem, (heap_size - heap_used));
+        //phs();
+        
+        tmemsz *= 2;
+        
+        if(tmem == 0) {
+            print("Error: out of memory!\n");
+            break;
+        }
+        free(tmem);
+    }
+}*/
+
+void Kinit(){
+    cbs_init(sm_con0); //init conscreen
+    
+    printf("CUX-BIOS PRGS=%d V=%f2\n", programsize, 1.40);
+    printf("DynObj-Version=%f2\n", dynobj_version);
+    
+    //clear RAM and setup heap memory
+    out sp_ramclear, 1;
+    idle;
+    out sp_ramclear, 0;
+    
+    heap_format(sm_ram0, 2*128*1024);
+    
+    phs();
+    
+  //  float* fun_in = dol_getfunc(_LOGOLIB_, "putlogo");
+    
+    //printf("CBSLIB=%d init=%d printf=%d\n", _CBSLIB_, fun_in, fun_pf);
+    
+    //out 0,0;
+    
+//    printf("LOGOLIB=%d, putlogo=%d\n", _LOGOLIB_, fun_in);
+    
+    //mov esi, __LOGODATA__;
+    //mov edi, sm_con1;
+    //mcopy 1080;
+    
+//    push sm_con1;
+    //callf putlogo_ext, 0;
+    //inc esp;
+    
+//    /*push teststr;
+    //callf fun_pf, _CBSLIB_;
+    //inc esp;*/
+    
+    push __DATE_SECOND__;
+    callf test_farcall, 0;
+    inc esp;
+    
+    push sm_con1;
+    callf putlogo_ext, 0;
+    inc esp;
+    
+}
+
+string teststr, "yest another string :P\n";
+
+test_farcall:
+    
+    rstack r0, esp:4;
+    out 2, cs:#teststr;
+    
+retf;
+
+//_CBSLIB_:
+//#include <cidbios/lib_so/screen.txt>
+_LOGOLIB_:
+#include <cidbios2/lib/logo.txt>

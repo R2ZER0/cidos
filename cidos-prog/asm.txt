@@ -1,0 +1,34 @@
+//Assembler
+
+//first we have to TOKENISE!
+
+struct token {
+    char type;
+    char data;
+};
+#define token_size 2
+
+//token types
+#define tt.operand 0
+#define tt.register 1
+#define tt.segment 2
+#define tt.constant 3
+
+char* curcharptr = 0;
+char curchar = 0;
+
+//tokeniser
+char* token_stack_top = 0;
+float token_stack_cur = 0;
+float token_stack_size = 0;
+float token_stack_maxsize = 0;
+
+void push_token(float type, float data){
+    token_stack_size += 2;
+    if(token_stack_size > token_stack_maxsize){
+        //make sure we have enough memory, if not, make some more
+        token_stack_maxsize *= 2;
+        token_stack_top = realloc(token_stack_top, token_stack_maxsize);
+    }
+    token_stack_top[(token_stack_cur++)*token_size] =
+}
