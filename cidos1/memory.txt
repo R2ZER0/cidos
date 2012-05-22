@@ -65,7 +65,7 @@ char* malloc(float memsize) {
 	}
     
     if((tpart.size + 32) < (memsize)){
-        alloc_aplit_part(tpart, memsize);
+        heap_split_part(tpart, memsize);
     }
     
     return tpart + 2;
